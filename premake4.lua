@@ -65,6 +65,22 @@ solution "aogl"
          flags { "Optimize" }
          targetdir "bin/release"
 
+   -- GLEW Library         
+   project "glew"
+      kind "StaticLib"
+      language "C"
+      files {"lib/glew/*.c", "lib/glew/*.h"}
+      defines { "GLEW_STATIC" }
+
+      configuration "Debug"
+         defines { "DEBUG" }
+         flags { "Symbols" }
+         targetdir "bin/debug"
+
+      configuration "Release"
+         defines { "NDEBUG" }
+         flags { "Optimize" }    
+
    -- imgui Library         
    project "imgui"
       kind "StaticLib"

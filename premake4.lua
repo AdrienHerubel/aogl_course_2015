@@ -65,7 +65,7 @@ solution "aogl"
          flags { "Optimize" }
          targetdir "bin/release"
 
-   -- GLEW Library         
+   -- imgui Library         
    project "imgui"
       kind "StaticLib"
       language "C"

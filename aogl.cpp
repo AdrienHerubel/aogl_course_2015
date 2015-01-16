@@ -5,12 +5,6 @@
 #include <iostream>
 
 #include "glew/glew.h"
-#ifdef __APPLE__
-#include <OpenGL/gl3.h>
-#else
-#include <GL/gl.h>
-#include <GL/glu.h>
-#endif
 
 #include "GLFW/glfw3.h"
 #include "stb/stb_image.h"
@@ -46,22 +40,14 @@
 extern const unsigned char DroidSans_ttf[];
 extern const unsigned int DroidSans_ttf_len;    
 
-struct ShaderGLSL
-{
-    enum ShaderType
-    {
-        VERTEX_SHADER = 1,
-        FRAGMENT_SHADER = 2,
-        GEOMETRY_SHADER = 4
-    };
-    GLuint program;
-};
+// Shader utils
+int check_compile_error(GLuint shader, const char ** sourceBuffer);
+GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
+GLuint compile_shader_from_file(GLenum shaderType, const char * fileName);
 
-int compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sourceBuffer, int bufferSize);
-int destroy_shader(ShaderGLSL & shader);
-int load_shader_from_file(ShaderGLSL & shader, const char * path, int typemask);
+// OpenGL utils
 bool checkError(const char* title);
-    
+
 struct Camera
 {
     float radius;
@@ -71,7 +57,6 @@ struct Camera
     glm::vec3 eye;
     glm::vec3 up;
 };
-
 void camera_defaults(Camera & c);
 void camera_zoom(Camera & c, float factor);
 void camera_turn(Camera & c, float phi, float theta);
@@ -94,19 +79,8 @@ struct GUIStates
 const float GUIStates::MOUSE_PAN_SPEED = 0.001f;
 const float GUIStates::MOUSE_ZOOM_SPEED = 0.05f;
 const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
+void init_gui_states(GUIStates & guiStates);
 
-
-void init_gui_states(GUIStates & guiStates)
-{
-    guiStates.panLock = false;
-    guiStates.turnLock = false;
-    guiStates.zoomLock = false;
-    guiStates.lockPositionX = 0;
-    guiStates.lockPositionY = 0;
-    guiStates.camera = 0;
-    guiStates.time = 0.0;
-    guiStates.playing = false;
-}
 
 int main( int argc, char **argv )
 {
@@ -132,7 +106,7 @@ int main( int argc, char **argv )
 #if defined(__APPLE__)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    int const DPI = 2;
+    int const DPI = 2; // For retina screens only
 #else
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
@@ -209,36 +183,31 @@ int main( int argc, char **argv )
     fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
     checkError("Texture Initialization");
 
-    // Try to load and compile shader
-    ShaderGLSL shader;
-    //const char * shaderFile = "001/3a.glsl";
-    //const char * shaderFile = "001/4a.glsl";
-    //const char * shaderFile = "001/5a.glsl";
-    //const char * shaderFile = "001/5ba.glsl";
-    //const char * shaderFile = "001/6a.glsl";
-    //const char * shaderFile = "001/7a.glsl";
-    const char * shaderFile = "8a.glsl";
-    //int status = load_shader_from_file(shader, shaderFile, ShaderGLSL::VERTEX_SHADER | ShaderGLSL::FRAGMENT_SHADER | ShaderGLSL::GEOMETRY_SHADER);
-    int status = load_shader_from_file(shader, shaderFile, ShaderGLSL::VERTEX_SHADER | ShaderGLSL::FRAGMENT_SHADER);
-    if ( status == -1 )
-    {
-        fprintf(stderr, "Error on loading  %s\n", shaderFile);
-        exit( EXIT_FAILURE );
-    }
+    // Try to load and compile shaders
+    GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
+    if (!checkError("Vertex shader"))
+        exit(1);
+    GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
+    GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
+    GLuint programObject = glCreateProgram();
+    glAttachShader(programObject, vertShaderId);
+    glAttachShader(programObject, fragShaderId);
+    glLinkProgram(programObject);
 
-    // Apply shader
-    GLuint program = shader.program;
-    glUseProgram(program);
-    GLuint projectionLocation = glGetUniformLocation(program, "Projection");
-    GLuint viewLocation = glGetUniformLocation(program, "View");
-    GLuint objectLocation = glGetUniformLocation(program, "Object");
-    GLuint timeLocation = glGetUniformLocation(program, "Time");
-    GLuint diffuseLocation = glGetUniformLocation(program, "Diffuse");
-    GLuint specLocation = glGetUniformLocation(program, "Spec");
-    GLuint cameraPositionLocation = glGetUniformLocation(program, "CameraPosition");
-    glUniform1i(diffuseLocation, 0);
-    glUniform1i(specLocation, 1);
+    if (!checkError("Link shader"))
+        exit(1);
+    
+    // Upload uniforms
+    GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
+    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
+    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
+    GLuint specLocation = glGetUniformLocation(programObject, "Spec");
+    GLuint cameraPositionLocation = glGetUniformLocation(programObject, "CameraPosition");
+    glProgramUniform1i(programObject, diffuseLocation, 0);
+    glProgramUniform1i(programObject, specLocation, 1);
 
+    if (!checkError("Uniforms"))
+        exit(1);
 
     // Load geometry
     int cube_triangleCount = 12;
@@ -305,6 +274,7 @@ int main( int argc, char **argv )
     // Unbind everything. Potentially illegal on some implementations
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -382,7 +352,8 @@ int main( int argc, char **argv )
         glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
-
+        glm::mat4 mvp = projection * worldToView * objectToWorld;
+        
         // Select textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textures[0]);
@@ -390,14 +361,11 @@ int main( int argc, char **argv )
         glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         // Select shader
-        glUseProgram(program);
+        glUseProgram(programObject);
 
         // Upload uniforms
-        glUniformMatrix4fv(projectionLocation, 1, 0, glm::value_ptr(projection));
-        glUniformMatrix4fv(viewLocation, 1, 0, glm::value_ptr(worldToView));
-        glUniformMatrix4fv(objectLocation, 1, 0, glm::value_ptr(objectToWorld));
-        glUniform1f(timeLocation, t);
-        glUniform3fv(cameraPositionLocation, 1, glm::value_ptr(camera.eye));
+        glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
         glBindVertexArray(vao[0]);
@@ -455,7 +423,6 @@ int main( int argc, char **argv )
     exit( EXIT_SUCCESS );
 }
 
-
 // No windows implementation of strsep
 char * strsep_custom(char **stringp, const char *delim)
 {
@@ -491,11 +458,10 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
     {
         char * log = new char[logLength];
         glGetShaderInfoLog(shader, logLength, &logLength, log);
-        fprintf(stderr, "Error in compiling vertex shader : %s", log);
-        fprintf(stderr, "  1 : %s  2 : %s\n", sourceBuffer[0], sourceBuffer[1]);
+        fprintf(stderr, "Error in compiling shader : %s", log);
         char *token, *string;
-        string = strdup(sourceBuffer[2]+1);
-        int lc = 3;
+        string = strdup(sourceBuffer[0]);
+        int lc = 0;
         while ((token = strsep(&string, "\n")) != NULL) {
            printf("%3d : %s\n", lc, token);
            ++lc;
@@ -511,157 +477,35 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
 }
 
 
-int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sourceBuffer, int bufferSize)
+GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize)
 {
-    // Search for #version line
-    int versionEol = 0;
-    while(versionEol < bufferSize && sourceBuffer[versionEol] != '\n')
-        ++versionEol;
-    if (versionEol == bufferSize) {
-        fprintf(stderr, "Invalid shader : no new line \n");
-        return -1;          
-    }
-    char * versionStr = strndup(sourceBuffer, versionEol+1);
-    if (strstr(versionStr, "#version") == NULL)
-    {
-        fprintf(stderr, "Invalid shader : no #version line at the start \n");
-        return -1; 
-    }
-
-    // Create program object
-    shader.program = glCreateProgram();
-    
-    //Handle Vertex Shader
-    GLuint vertexShaderObject ;
-    if (typeMask & ShaderGLSL::VERTEX_SHADER)
-    {
-        // Create shader object for vertex shader
-        vertexShaderObject = glCreateShader(GL_VERTEX_SHADER);
-        // Add #define VERTEX to buffer
-        const char * sc[3] = { versionStr, "#define VERTEX", sourceBuffer+versionEol};
-        glShaderSource(vertexShaderObject, 
-                       3, 
-                       sc,
-                       NULL);
-        // Compile shader
-        glCompileShader(vertexShaderObject);
-        if (check_compile_error(vertexShaderObject, sc) < 0)
-            return -1;
-
-        //Attach shader to program
-        glAttachShader(shader.program, vertexShaderObject);
-    }
-
-    // Handle Geometry shader
-    GLuint geometryShaderObject ;
-    if (typeMask & ShaderGLSL::GEOMETRY_SHADER)
-    {
-        // Create shader object for Geometry shader
-        geometryShaderObject = glCreateShader(GL_GEOMETRY_SHADER);
-        // Add #define Geometry to buffer
-        const char * sc[3] = { versionStr, "#define GEOMETRY\n", sourceBuffer+versionEol};
-        glShaderSource(geometryShaderObject, 
-                       3, 
-                       sc,
-                       NULL);
-        // Compile shader
-        glCompileShader(geometryShaderObject);
-        if (check_compile_error(geometryShaderObject, sc) < 0)
-            return -1;     
-
-        //Attach shader to program
-        glAttachShader(shader.program, geometryShaderObject);
-    }
-
-
-    // Handle Fragment shader
-    GLuint fragmentShaderObject ;
-    if (typeMask && ShaderGLSL::FRAGMENT_SHADER)
-    {
-        // Create shader object for fragment shader
-        fragmentShaderObject = glCreateShader(GL_FRAGMENT_SHADER);
-        // Add #define fragment to buffer
-        const char * sc[3] = { versionStr, "#define FRAGMENT\n", sourceBuffer+versionEol};
-        glShaderSource(fragmentShaderObject, 
-                       3, 
-                       sc,
-                       NULL);
-        // Compile shader
-        glCompileShader(fragmentShaderObject);
-        if (check_compile_error(fragmentShaderObject, sc) < 0)
-            return -1;             
-
-        //Attach shader to program
-        glAttachShader(shader.program, fragmentShaderObject);
-    }
-
-
-    // Bind attribute location
-    glBindAttribLocation(shader.program,  0,  "VertexPosition");
-    glBindAttribLocation(shader.program,  1,  "VertexNormal");
-    glBindAttribLocation(shader.program,  2,  "VertexTexCoord");
-    glBindFragDataLocation(shader.program, 0, "Color");
-    glBindFragDataLocation(shader.program, 1, "Normal");
-
-    // Link attached shaders
-    glLinkProgram(shader.program);
-
-    // Clean
-    if (typeMask & ShaderGLSL::VERTEX_SHADER)
-    {
-        glDeleteShader(vertexShaderObject);
-    }
-    if (typeMask && ShaderGLSL::GEOMETRY_SHADER)
-    {
-        glDeleteShader(fragmentShaderObject);
-    }
-    if (typeMask && ShaderGLSL::FRAGMENT_SHADER)
-    {
-        glDeleteShader(fragmentShaderObject);
-    }
-
-    // Get link error log size and print it eventually
-    int logLength;
-    glGetProgramiv(shader.program, GL_INFO_LOG_LENGTH, &logLength);
-    if (logLength > 1)
-    {
-        char * log = new char[logLength];
-        glGetProgramInfoLog(shader.program, logLength, &logLength, log);
-        fprintf(stderr, "Error in linking shaders : %s \n", log);
-        delete[] log;
-    }
-    int status;
-    glGetProgramiv(shader.program, GL_LINK_STATUS, &status);        
-    if (status == GL_FALSE)
-        return -1;
-
-    free(versionStr);
-    return 0;
+    GLuint shaderObject = glCreateShader(shaderType);
+    const char * sc[1] = { sourceBuffer };
+    glShaderSource(shaderObject, 
+                   1, 
+                   sc,
+                   NULL);
+    glCompileShader(shaderObject);
+    check_compile_error(shaderObject, sc);
+    return shaderObject;
 }
 
-int  destroy_shader(ShaderGLSL & shader)
+GLuint compile_shader_from_file(GLenum shaderType, const char * path)
 {
-    glDeleteProgram(shader.program);
-    shader.program = 0;
-    return 0;
-}
-
-int load_shader_from_file(ShaderGLSL & shader, const char * path, int typemask)
-{
-    int status;
     FILE * shaderFileDesc = fopen( path, "rb" );
     if (!shaderFileDesc)
-        return -1;
+        return 0;
     fseek ( shaderFileDesc , 0 , SEEK_END );
     long fileSize = ftell ( shaderFileDesc );
     rewind ( shaderFileDesc );
     char * buffer = new char[fileSize + 1];
     fread( buffer, 1, fileSize, shaderFileDesc );
     buffer[fileSize] = '\0';
-    status = compile_and_link_shader( shader, typemask, buffer, fileSize );
+    GLuint shaderObject = compile_shader(shaderType, buffer, fileSize );
     delete[] buffer;
-    return status;
+    return shaderObject;
 }
+
 
 bool checkError(const char* title)
 {
@@ -746,4 +590,16 @@ void camera_pan(Camera & c, float x, float y)
     c.o[1] -= side[1] * x * c.radius * 2;
     c.o[2] -= side[2] * x * c.radius * 2;       
     camera_compute(c);
+}
+
+void init_gui_states(GUIStates & guiStates)
+{
+    guiStates.panLock = false;
+    guiStates.turnLock = false;
+    guiStates.zoomLock = false;
+    guiStates.lockPositionX = 0;
+    guiStates.lockPositionY = 0;
+    guiStates.camera = 0;
+    guiStates.time = 0.0;
+    guiStates.playing = false;
 }

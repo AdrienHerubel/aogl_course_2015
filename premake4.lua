@@ -11,7 +11,7 @@ solution "aogl"
       defines { "GLEW_STATIC" }
      
       configuration { "linux" }
-         links {"X11","Xrandr", "rt", "GL", "GLU", "pthread"}
+         links {"X11","Xrandr", "Xi", "Xxf86vm", "rt", "GL", "GLU", "pthread"}
        
       configuration { "windows" }
          links {"glu32","opengl32", "gdi32", "winmm", "user32"}
@@ -76,10 +76,12 @@ solution "aogl"
          defines { "DEBUG" }
          flags { "Symbols" }
          targetdir "bin/debug"
+         targetdir "bin/debug"
 
       configuration "Release"
          defines { "NDEBUG" }
          flags { "Optimize" }    
+         targetdir "bin/release"
 
    -- imgui Library         
    project "imgui"

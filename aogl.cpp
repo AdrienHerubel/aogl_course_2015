@@ -60,6 +60,7 @@ struct ShaderGLSL
 int compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sourceBuffer, int bufferSize);
 int destroy_shader(ShaderGLSL & shader);
 int load_shader_from_file(ShaderGLSL & shader, const char * path, int typemask);
+bool checkError(const char* title);
     
 struct Camera
 {
@@ -206,9 +207,7 @@ int main( int argc, char **argv )
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
-    glerr = glGetError();
-    if(glerr != GL_NO_ERROR)
-        fprintf(stderr, "2nd OpenGL Error : %s\n", gluErrorString(glerr));
+    checkError("Texture Initialization");
 
     // Try to load and compile shader
     ShaderGLSL shader;
@@ -440,11 +439,7 @@ int main( int argc, char **argv )
         glDisable(GL_BLEND);
 #endif
         // Check for errors
-        GLenum err = glGetError();
-        if(err != GL_NO_ERROR)
-        {
-            fprintf(stderr, "OpenGL Error : %s\n", gluErrorString(err));
-        }
+        checkError("End loop");
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -668,6 +663,37 @@ int load_shader_from_file(ShaderGLSL & shader, const char * path, int typemask)
     return status;
 }
 
+bool checkError(const char* title)
+{
+    int error;
+    if((error = glGetError()) != GL_NO_ERROR)
+    {
+        std::string errorString;
+        switch(error)
+        {
+        case GL_INVALID_ENUM:
+            errorString = "GL_INVALID_ENUM";
+            break;
+        case GL_INVALID_VALUE:
+            errorString = "GL_INVALID_VALUE";
+            break;
+        case GL_INVALID_OPERATION:
+            errorString = "GL_INVALID_OPERATION";
+            break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            errorString = "GL_INVALID_FRAMEBUFFER_OPERATION";
+            break;
+        case GL_OUT_OF_MEMORY:
+            errorString = "GL_OUT_OF_MEMORY";
+            break;
+        default:
+            errorString = "UNKNOWN";
+            break;
+        }
+        fprintf(stdout, "OpenGL Error(%s): %s\n", errorString.c_str(), title);
+    }
+    return error == GL_NO_ERROR;
+}
 
 void camera_compute(Camera & c)
 {

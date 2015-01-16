@@ -109,7 +109,7 @@ void init_gui_states(GUIStates & guiStates)
 
 int main( int argc, char **argv )
 {
-    int width = 800, height= 600;
+    int width = 1024, height= 768;
     float widthf = (float) width, heightf = (float) height;
     double t;
     float fps = 0.f;
@@ -418,6 +418,8 @@ int main( int argc, char **argv )
         int mscroll = 0;
         double mousex; double mousey;
         glfwGetCursorPos(window, &mousex, &mousey);
+        mousex*=DPI;
+        mousey*=DPI;
         mousey = height - mousey;
 
         if( leftButton == GLFW_PRESS )

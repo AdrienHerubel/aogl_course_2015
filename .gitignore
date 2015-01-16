@@ -8,6 +8,8 @@
 *.so
 bin/*
 obj/*
+aogl
+aogl_d
 
 # Packages #
 ############

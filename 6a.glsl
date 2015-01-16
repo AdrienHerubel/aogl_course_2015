@@ -1,3 +1,4 @@
+#version 410 core
 #if defined(VERTEX)
 uniform mat4 Projection;
 uniform mat4 View;

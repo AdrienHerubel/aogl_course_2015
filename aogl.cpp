@@ -12,7 +12,7 @@
 #include <GL/glu.h>
 #endif
 
-#include "GL/glfw.h"
+#include "GLFW/glfw3.h"
 #include "stb/stb_image.h"
 #include "imgui/imgui.h"
 #include "imgui/imguiRenderGL3.h"
@@ -120,29 +120,37 @@ int main( int argc, char **argv )
         fprintf( stderr, "Failed to initialize GLFW\n" );
         exit( EXIT_FAILURE );
     }
+    glfwInit();
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
+    glfwWindowHint(GLFW_DECORATED, GL_TRUE);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-    // Force core profile on Mac OSX
-#ifdef __APPLE__
-    glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
-    glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
-    glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#endif
+#if defined(__APPLE__)
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    int const DPI = 2;
+#else
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    int const DPI = 1;
+# endif
+
     // Open a window and create its OpenGL context
-    if( !glfwOpenWindow( width, height, 0,0,0,0, 24, 0, GLFW_WINDOW ) )
+    GLFWwindow * window = glfwCreateWindow(width/DPI, height/DPI, "aogl", 0, 0);
+    if( ! window )
     {
         fprintf( stderr, "Failed to open GLFW window\n" );
-
         glfwTerminate();
         exit( EXIT_FAILURE );
     }
+    glfwMakeContextCurrent(window);
 
-    glfwSetWindowTitle( "001_a" );
-
-    // Core profile is flagged as experimental in glew
-#ifdef __APPLE__
+    // Init glew
     glewExperimental = GL_TRUE;
-#endif
     GLenum err = glewInit();
     if (GLEW_OK != err)
     {
@@ -152,7 +160,7 @@ int main( int argc, char **argv )
     }
 
     // Ensure we can capture the escape key being pressed below
-    glfwEnable( GLFW_STICKY_KEYS );
+    glfwSetInputMode( window, GLFW_STICKY_KEYS, GL_TRUE );
 
     // Enable vertical sync (on cards that support it)
     glfwSwapInterval( 1 );
@@ -204,13 +212,13 @@ int main( int argc, char **argv )
 
     // Try to load and compile shader
     ShaderGLSL shader;
-    const char * shaderFile = "001/3a.glsl";
+    //const char * shaderFile = "001/3a.glsl";
     //const char * shaderFile = "001/4a.glsl";
     //const char * shaderFile = "001/5a.glsl";
     //const char * shaderFile = "001/5ba.glsl";
     //const char * shaderFile = "001/6a.glsl";
     //const char * shaderFile = "001/7a.glsl";
-    //const char * shaderFile = "001/8a.glsl";
+    const char * shaderFile = "8a.glsl";
     //int status = load_shader_from_file(shader, shaderFile, ShaderGLSL::VERTEX_SHADER | ShaderGLSL::FRAGMENT_SHADER | ShaderGLSL::GEOMETRY_SHADER);
     int status = load_shader_from_file(shader, shaderFile, ShaderGLSL::VERTEX_SHADER | ShaderGLSL::FRAGMENT_SHADER);
     if ( status == -1 )
@@ -307,9 +315,9 @@ int main( int argc, char **argv )
         t = glfwGetTime();
 
         // Mouse states
-        int leftButton = glfwGetMouseButton( GLFW_MOUSE_BUTTON_LEFT );
-        int rightButton = glfwGetMouseButton( GLFW_MOUSE_BUTTON_RIGHT );
-        int middleButton = glfwGetMouseButton( GLFW_MOUSE_BUTTON_MIDDLE );
+        int leftButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT );
+        int rightButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT );
+        int middleButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_MIDDLE );
 
         if( leftButton == GLFW_PRESS )
             guiStates.turnLock = true;
@@ -327,18 +335,18 @@ int main( int argc, char **argv )
             guiStates.panLock = false;
 
         // Camera movements
-        int altPressed = glfwGetKey(GLFW_KEY_LSHIFT);
+        int altPressed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT);
         if (!altPressed && (leftButton == GLFW_PRESS || rightButton == GLFW_PRESS || middleButton == GLFW_PRESS))
         {
-            int x; int y;
-            glfwGetMousePos(&x, &y);
+            double x; double y;
+            glfwGetCursorPos(window, &x, &y);
             guiStates.lockPositionX = x;
             guiStates.lockPositionY = y;
         }
         if (altPressed == GLFW_PRESS)
         {
-            int mousex; int mousey;
-            glfwGetMousePos(&mousex, &mousey);
+            double mousex; double mousey;
+            glfwGetCursorPos(window, &mousex, &mousey);
             int diffLockPositionX = mousex - guiStates.lockPositionX;
             int diffLockPositionY = mousey - guiStates.lockPositionY;
             if (guiStates.zoomLock)
@@ -408,8 +416,8 @@ int main( int argc, char **argv )
 
         unsigned char mbut = 0;
         int mscroll = 0;
-        int mousex; int mousey;
-        glfwGetMousePos(&mousex, &mousey);
+        double mousex; double mousey;
+        glfwGetCursorPos(window, &mousex, &mousey);
         mousey = height - mousey;
 
         if( leftButton == GLFW_PRESS )
@@ -418,7 +426,7 @@ int main( int argc, char **argv )
         imguiBeginFrame(mousex, mousey, mbut, mscroll);
         int logScroll = 0;
         char lineBuffer[512];
-        imguiBeginScrollArea("001", width - 210, height - 310, 200, 300, &logScroll);
+        imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
         sprintf(lineBuffer, "FPS %f", fps);
         imguiLabel(lineBuffer);
         imguiSlider("Dummy", &dummySlider, 0.0, 3.0, 0.1);
@@ -436,14 +444,13 @@ int main( int argc, char **argv )
             fprintf(stderr, "OpenGL Error : %s\n", gluErrorString(err));
         }
 
-        // Swap buffers
-        glfwSwapBuffers();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
 
         double newTime = glfwGetTime();
         fps = 1.f/ (newTime - t);
-    } // Check if the ESC key was pressed or the window was closed
-    while( glfwGetKey( GLFW_KEY_ESC ) != GLFW_PRESS &&
-           glfwGetWindowParam( GLFW_OPENED ) );
+    } // Check if the ESC key was pressed
+    while( glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS );
 
     // Close OpenGL window and terminate GLFW
     glfwTerminate();
@@ -452,8 +459,78 @@ int main( int argc, char **argv )
 }
 
 
+// No windows implementation of strsep
+char * strsep_custom(char **stringp, const char *delim)
+{
+    register char *s;
+    register const char *spanp;
+    register int c, sc;
+    char *tok;
+    if ((s = *stringp) == NULL)
+        return (NULL);
+    for (tok = s; ; ) {
+        c = *s++;
+        spanp = delim;
+        do {
+            if ((sc = *spanp++) == c) {
+                if (c == 0)
+                    s = NULL;
+                else
+                    s[-1] = 0;
+                *stringp = s;
+                return (tok);
+            }
+        } while (sc != 0);
+    }
+    return 0;
+}
+
+int check_compile_error(GLuint shader, const char ** sourceBuffer)
+{
+    // Get error log size and print it eventually
+    int logLength;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+    if (logLength > 1)
+    {
+        char * log = new char[logLength];
+        glGetShaderInfoLog(shader, logLength, &logLength, log);
+        fprintf(stderr, "Error in compiling vertex shader : %s", log);
+        fprintf(stderr, "  1 : %s  2 : %s\n", sourceBuffer[0], sourceBuffer[1]);
+        char *token, *string;
+        string = strdup(sourceBuffer[2]+1);
+        int lc = 3;
+        while ((token = strsep(&string, "\n")) != NULL) {
+           printf("%3d : %s\n", lc, token);
+           ++lc;
+        }
+        delete[] log;
+    }
+    // If an error happend quit
+    int status;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+    if (status == GL_FALSE)
+        return -1;     
+    return 0;
+}
+
+
 int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sourceBuffer, int bufferSize)
 {
+    // Search for #version line
+    int versionEol = 0;
+    while(versionEol < bufferSize && sourceBuffer[versionEol] != '\n')
+        ++versionEol;
+    if (versionEol == bufferSize) {
+        fprintf(stderr, "Invalid shader : no new line \n");
+        return -1;          
+    }
+    char * versionStr = strndup(sourceBuffer, versionEol+1);
+    if (strstr(versionStr, "#version") == NULL)
+    {
+        fprintf(stderr, "Invalid shader : no #version line at the start \n");
+        return -1; 
+    }
+
     // Create program object
     shader.program = glCreateProgram();
     
@@ -464,30 +541,15 @@ int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sou
         // Create shader object for vertex shader
         vertexShaderObject = glCreateShader(GL_VERTEX_SHADER);
         // Add #define VERTEX to buffer
-        const char * sc[3] = { "#version 150\n", "#define VERTEX\n", sourceBuffer};
+        const char * sc[3] = { versionStr, "#define VERTEX", sourceBuffer+versionEol};
         glShaderSource(vertexShaderObject, 
                        3, 
                        sc,
                        NULL);
         // Compile shader
         glCompileShader(vertexShaderObject);
-
-        // Get error log size and print it eventually
-        int logLength;
-        glGetShaderiv(vertexShaderObject, GL_INFO_LOG_LENGTH, &logLength);
-        if (logLength > 1)
-        {
-            char * log = new char[logLength];
-            glGetShaderInfoLog(vertexShaderObject, logLength, &logLength, log);
-            fprintf(stderr, "Error in compiling vertex shader : %s", log);
-            fprintf(stderr, "%s\n%s\n%s", sc[0], sc[1], sc[2]);
-            delete[] log;
-        }
-        // If an error happend quit
-        int status;
-        glGetShaderiv(vertexShaderObject, GL_COMPILE_STATUS, &status);
-        if (status == GL_FALSE)
-            return -1;          
+        if (check_compile_error(vertexShaderObject, sc) < 0)
+            return -1;
 
         //Attach shader to program
         glAttachShader(shader.program, vertexShaderObject);
@@ -500,30 +562,15 @@ int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sou
         // Create shader object for Geometry shader
         geometryShaderObject = glCreateShader(GL_GEOMETRY_SHADER);
         // Add #define Geometry to buffer
-        const char * sc[3] = { "#version 150\n", "#define GEOMETRY\n", sourceBuffer};
+        const char * sc[3] = { versionStr, "#define GEOMETRY\n", sourceBuffer+versionEol};
         glShaderSource(geometryShaderObject, 
                        3, 
                        sc,
                        NULL);
         // Compile shader
         glCompileShader(geometryShaderObject);
-
-        // Get error log size and print it eventually
-        int logLength;
-        glGetShaderiv(geometryShaderObject, GL_INFO_LOG_LENGTH, &logLength);
-        if (logLength > 1)
-        {
-            char * log = new char[logLength];
-            glGetShaderInfoLog(geometryShaderObject, logLength, &logLength, log);
-            fprintf(stderr, "Error in compiling Geometry shader : %s \n", log);
-            fprintf(stderr, "%s\n%s\n%s", sc[0], sc[1], sc[2]);
-            delete[] log;
-        }
-        // If an error happend quit
-        int status;
-        glGetShaderiv(geometryShaderObject, GL_COMPILE_STATUS, &status);
-        if (status == GL_FALSE)
-            return -1;          
+        if (check_compile_error(geometryShaderObject, sc) < 0)
+            return -1;     
 
         //Attach shader to program
         glAttachShader(shader.program, geometryShaderObject);
@@ -537,30 +584,15 @@ int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sou
         // Create shader object for fragment shader
         fragmentShaderObject = glCreateShader(GL_FRAGMENT_SHADER);
         // Add #define fragment to buffer
-        const char * sc[3] = { "#version 150\n", "#define FRAGMENT\n", sourceBuffer};
+        const char * sc[3] = { versionStr, "#define FRAGMENT\n", sourceBuffer+versionEol};
         glShaderSource(fragmentShaderObject, 
                        3, 
                        sc,
                        NULL);
         // Compile shader
         glCompileShader(fragmentShaderObject);
-
-        // Get error log size and print it eventually
-        int logLength;
-        glGetShaderiv(fragmentShaderObject, GL_INFO_LOG_LENGTH, &logLength);
-        if (logLength > 1)
-        {
-            char * log = new char[logLength];
-            glGetShaderInfoLog(fragmentShaderObject, logLength, &logLength, log);
-            fprintf(stderr, "Error in compiling fragment shader : %s \n", log);
-            fprintf(stderr, "%s\n%s\n%s", sc[0], sc[1], sc[2]);
-            delete[] log;
-        }
-        // If an error happend quit
-        int status;
-        glGetShaderiv(fragmentShaderObject, GL_COMPILE_STATUS, &status);
-        if (status == GL_FALSE)
-            return -1;          
+        if (check_compile_error(fragmentShaderObject, sc) < 0)
+            return -1;             
 
         //Attach shader to program
         glAttachShader(shader.program, fragmentShaderObject);
@@ -606,7 +638,7 @@ int  compile_and_link_shader(ShaderGLSL & shader, int typeMask, const char * sou
     if (status == GL_FALSE)
         return -1;
 
-
+    free(versionStr);
     return 0;
 }
 

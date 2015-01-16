@@ -1,4 +1,4 @@
-solution "advanced_opengl_imac3_exercises"
+solution "aogl"
    configurations { "Debug", "Release" }
    platforms {"native", "x64", "x32"}
 
@@ -17,68 +17,52 @@ solution "advanced_opengl_imac3_exercises"
          links {"glu32","opengl32", "gdi32", "winmm", "user32"}
 
       configuration { "macosx" }
-         linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit" }
+         linkoptions { "-framework OpenGL", "-framework CoreVideo" , "-framework Cocoa", "-framework IOKit"}
+         
        
       configuration "Debug"
          defines { "DEBUG" }
          flags {"ExtraWarnings", "Symbols" }
-         targetsuffix "d"
+         targetsuffix "_d"
 
       configuration "Release"
          defines { "NDEBUG" }
          flags { "Optimize"}    
-         targetsuffix "r"
 
    -- GLFW Library
    project "glfw"
       kind "StaticLib"
       language "C"
-      files { "lib/glfw/lib/*.h", "lib/glfw/lib/*.c", "lib/glfw/include/GL/glfw.h" }
+      files { "lib/glfw/include/GL/glfw.h" }
       includedirs { "lib/glfw/lib", "lib/glfw/include"}
 
       configuration {"linux"}
-         files { "lib/glfw/lib/x11/*.c", "lib/glfw/x11/*.h" }
-         includedirs { "lib/glfw/lib/x11" }
-         defines { "_GLFW_USE_LINUX_JOYSTICKS", "_GLFW_HAS_XRANDR", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD", "_GLFW_HAS_GLXGETPROCADDRESS" }
-         buildoptions { "-pthread" }
-       
+         files { "lib/glfw/lib/*.c", "lib/glfw/*.h" }
+         excludes { "lib/glfw/lib/egl_*", "lib/glfw/lib/cocoa_*",  "lib/glfw/lib/win32_*", "lib/glfw/lib/wgl_*" }
+         defines { "_GLFW_GLX",  "_GLFW_X11", "_GLFW_USE_OPENGL", "_GLFW_USE_LINUX_JOYSTICKS", "_GLFW_HAS_XRANDR", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD", "_GLFW_HAS_GLXGETPROCADDRESS" }
+         buildoptions { "-std=c++11",  "-Wall", "-pthread" }
+
       configuration {"windows"}
-         files { "lib/glfw/lib/win32/*.c", "lib/glfw/win32/*.h" }
+         files { "lib/glfw/lib/*.c", "lib/glfw/*.h" }
+         excludes { "lib/glfw/lib/egl_*", "lib/glfw/lib/cocoa_*", "lib/glfw/lib/x11_*", "lib/glfw/lib/glx_*" }
          includedirs { "lib/glfw/lib/win32" }
-         defines { "_GLFW_USE_LINUX_JOYSTICKS", "_GLFW_HAS_XRANDR", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD", "_GLFW_HAS_GLXGETPROCADDRESS" }
-       
+         defines { "_GLFW_WGL", "_GLFW_WIN32", "_GLFW_USE_OPENGL", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD" }
+
       configuration {"Macosx"}
-         files { "lib/glfw/lib/cocoa/*.c", "lib/glfw/lib/cocoa/*.h", "lib/glfw/lib/cocoa/*.m" }
-         includedirs { "lib/glfw/lib/cocoa" }
-         defines { }
-         buildoptions { " -fno-common" }
-         linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit" }
+         files { "lib/glfw/lib/*.c", "lib/glfw/lib/*.m",  "lib/glfw/*.h" }
+         excludes { "lib/glfw/lib/egl_*",  "lib/glfw/lib/glx_*", "lib/glfw/lib/x11_*", "lib/glfw/lib/win32_*", "lib/glfw/lib/wgl_*" }
+         defines { "_GLFW_COCOA", "_GLFW_NSGL", "_GLFW_USE_OPENGL", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD"}
+         buildoptions {  "-Wall", "-pthread" }
 
       configuration "Debug"
          defines { "DEBUG" }
          flags { "Symbols" }
          targetdir "bin/debug"
 
-      configuration "Release"
-         defines { "NDEBUG" }
-         flags { "Optimize" }    
-         targetdir "bin/release"
-
-   -- GLEW Library         
-   project "glew"
-      kind "StaticLib"
-      language "C"
-      files {"lib/glew/*.c", "lib/glew/*.h"}
-      defines { "GLEW_STATIC" }
-
-      configuration "Debug"
-         defines { "DEBUG" }
-         flags { "Symbols" }
-         targetdir "bin/debug"
 
       configuration "Release"
          defines { "NDEBUG" }
-         flags { "Optimize" }    
+         flags { "Optimize" }
          targetdir "bin/release"
 
    -- GLEW Library         

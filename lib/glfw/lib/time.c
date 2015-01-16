@@ -1,8 +1,5 @@
 //========================================================================
-// GLFW - An OpenGL framework
-// Platform:    Any
-// API version: 2.7
-// WWW:         http://www.glfw.org/
+// GLFW 3.0 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2010 Camilla Berglund <elmindreda@elmindreda.org>
@@ -31,54 +28,19 @@
 #include "internal.h"
 
 
-//************************************************************************
-//****                    GLFW user functions                         ****
-//************************************************************************
+//////////////////////////////////////////////////////////////////////////
+//////                        GLFW public API                       //////
+//////////////////////////////////////////////////////////////////////////
 
-//========================================================================
-// Return timer value in seconds
-//========================================================================
-
-GLFWAPI double GLFWAPIENTRY glfwGetTime( void )
+GLFWAPI double glfwGetTime(void)
 {
-    // Is GLFW initialized?
-    if( !_glfwInitialized )
-    {
-        return 0.0;
-    }
-
+    _GLFW_REQUIRE_INIT_OR_RETURN(0.0);
     return _glfwPlatformGetTime();
 }
 
-
-//========================================================================
-// Set timer value in seconds
-//========================================================================
-
-GLFWAPI void GLFWAPIENTRY glfwSetTime( double time )
+GLFWAPI void glfwSetTime(double time)
 {
-    // Is GLFW initialized?
-    if( !_glfwInitialized )
-    {
-        return;
-    }
-
-    _glfwPlatformSetTime( time );
-}
-
-
-//========================================================================
-// Put a thread to sleep for a specified amount of time
-//========================================================================
-
-GLFWAPI void GLFWAPIENTRY glfwSleep( double time )
-{
-    // Is GLFW initialized?
-    if( !_glfwInitialized )
-    {
-        return;
-    }
-
-    _glfwPlatformSleep( time );
+    _GLFW_REQUIRE_INIT();
+    _glfwPlatformSetTime(time);
 }
 

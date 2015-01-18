@@ -10,20 +10,22 @@ precision highp int;
 
 uniform mat4 MVP;
 
-//layout(std140, column_major) uniform;
-
 layout(location = POSITION) in vec3 Position;
 layout(location = NORMAL) in vec4 Normal;
-layout(location = TEXCOORD) in vec2 Texcoord;
-layout(location = TEXCOORD) out vec2 VertTexcoord;
+layout(location = TEXCOORD) in vec2 TexCoord;
 
 out gl_PerVertex
 {
 	vec4 gl_Position;
 };
 
+out block
+{
+	vec2 TexCoord; 
+} Out;
+
 void main()
 {	
-	VertTexcoord = Texcoord;
 	gl_Position = MVP * vec4(Position, 1.0);
+	Out.TexCoord = TexCoord;
 }

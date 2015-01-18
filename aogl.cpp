@@ -41,6 +41,7 @@ extern const unsigned char DroidSans_ttf[];
 extern const unsigned int DroidSans_ttf_len;    
 
 // Shader utils
+int check_link_error(GLuint program);
 int check_compile_error(GLuint shader, const char ** sourceBuffer);
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
 GLuint compile_shader_from_file(GLenum shaderType, const char * fileName);
@@ -155,56 +156,18 @@ int main( int argc, char **argv )
     init_gui_states(guiStates);
     float dummySlider = 0.f;
 
-    // Load images and upload textures
-    GLuint textures[2];
-    glGenTextures(2, textures);
-    int x;
-    int y;
-    int comp;
-
-    unsigned char * diffuse = stbi_load("textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
-
-    unsigned char * spec = stbi_load("textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
-    checkError("Texture Initialization");
-
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
-    if (!checkError("Vertex shader"))
-        exit(1);
-    GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
     GLuint programObject = glCreateProgram();
     glAttachShader(programObject, vertShaderId);
     glAttachShader(programObject, fragShaderId);
     glLinkProgram(programObject);
-
-    if (!checkError("Link shader"))
+    if (check_link_error(programObject) < 0)
         exit(1);
     
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
-    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
-    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
-    GLuint specLocation = glGetUniformLocation(programObject, "Spec");
-    GLuint cameraPositionLocation = glGetUniformLocation(programObject, "CameraPosition");
-    glProgramUniform1i(programObject, diffuseLocation, 0);
-    glProgramUniform1i(programObject, specLocation, 1);
 
     if (!checkError("Uniforms"))
         exit(1);
@@ -353,19 +316,12 @@ int main( int argc, char **argv )
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
         glm::mat4 mvp = projection * worldToView * objectToWorld;
-        
-        // Select textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[0]);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         // Select shader
         glUseProgram(programObject);
 
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
-        glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
         glBindVertexArray(vao[0]);
@@ -458,7 +414,6 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
     {
         char * log = new char[logLength];
         glGetShaderInfoLog(shader, logLength, &logLength, log);
-        fprintf(stderr, "Error in compiling shader : %s", log);
         char *token, *string;
         string = strdup(sourceBuffer[0]);
         int lc = 0;
@@ -466,6 +421,7 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
            printf("%3d : %s\n", lc, token);
            ++lc;
         }
+        fprintf(stderr, "Compile : %s", log);
         delete[] log;
     }
     // If an error happend quit
@@ -473,6 +429,25 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE)
         return -1;     
+    return 0;
+}
+
+int check_link_error(GLuint program)
+{
+    // Get link error log size and print it eventually
+    int logLength;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+    if (logLength > 1)
+    {
+        char * log = new char[logLength];
+        glGetProgramInfoLog(program, logLength, &logLength, log);
+        fprintf(stderr, "Link : %s \n", log);
+        delete[] log;
+    }
+    int status;
+    glGetProgramiv(program, GL_LINK_STATUS, &status);        
+    if (status == GL_FALSE)
+        return -1;
     return 0;
 }
 

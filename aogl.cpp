@@ -42,6 +42,7 @@ extern const unsigned int DroidSans_ttf_len;
 
 // Shader utils
 int check_compile_error(GLuint shader, const char ** sourceBuffer);
+int check_link_error(GLuint program);
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
 GLuint compile_shader_from_file(GLenum shaderType, const char * fileName);
 
@@ -185,27 +186,26 @@ int main( int argc, char **argv )
 
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
-    if (!checkError("Vertex shader"))
-        exit(1);
     GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
     GLuint programObject = glCreateProgram();
     glAttachShader(programObject, vertShaderId);
+    glAttachShader(programObject, geomShaderId);
     glAttachShader(programObject, fragShaderId);
     glLinkProgram(programObject);
-
-    if (!checkError("Link shader"))
+    if (check_link_error(programObject) < 0)
         exit(1);
     
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
+    GLuint mvLocation = glGetUniformLocation(programObject, "MV");
     GLuint timeLocation = glGetUniformLocation(programObject, "Time");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
-    GLuint specLocation = glGetUniformLocation(programObject, "Spec");
-    GLuint cameraPositionLocation = glGetUniformLocation(programObject, "CameraPosition");
+    GLuint specLocation = glGetUniformLocation(programObject, "Specular");
+    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
+    GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, specLocation, 1);
-
     if (!checkError("Uniforms"))
         exit(1);
 
@@ -352,8 +352,10 @@ int main( int argc, char **argv )
         glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
-        glm::mat4 mvp = projection * worldToView * objectToWorld;
-        
+        glm::mat4 mv = worldToView * objectToWorld;
+        glm::mat4 mvp = projection * mv;
+        glm::vec3 light =  glm::normalize(glm::vec3(worldToView * glm::vec4(0.5, 1.0, 0.0, 0.0)));
+
         // Select textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textures[0]);
@@ -365,6 +367,9 @@ int main( int argc, char **argv )
 
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+        glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(light));
+        glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
@@ -458,7 +463,6 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
     {
         char * log = new char[logLength];
         glGetShaderInfoLog(shader, logLength, &logLength, log);
-        fprintf(stderr, "Error in compiling shader : %s", log);
         char *token, *string;
         string = strdup(sourceBuffer[0]);
         int lc = 0;
@@ -466,6 +470,7 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
            printf("%3d : %s\n", lc, token);
            ++lc;
         }
+        fprintf(stderr, "Compile : %s", log);
         delete[] log;
     }
     // If an error happend quit
@@ -476,6 +481,24 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
     return 0;
 }
 
+int check_link_error(GLuint program)
+{
+    // Get link error log size and print it eventually
+    int logLength;
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+    if (logLength > 1)
+    {
+        char * log = new char[logLength];
+        glGetProgramInfoLog(program, logLength, &logLength, log);
+        fprintf(stderr, "Link : %s \n", log);
+        delete[] log;
+    }
+    int status;
+    glGetProgramiv(program, GL_LINK_STATUS, &status);        
+    if (status == GL_FALSE)
+        return -1;
+    return 0;
+}
 
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize)
 {

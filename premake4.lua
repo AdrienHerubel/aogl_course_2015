@@ -86,7 +86,7 @@ solution "aogl"
    -- imgui Library         
    project "imgui"
       kind "StaticLib"
-      language "C"
+      language "C++"
       files {"lib/imgui/*.cpp", "lib/imgui/*.h"}
       includedirs { "lib/" }
 

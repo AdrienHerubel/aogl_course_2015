@@ -154,7 +154,7 @@ int main( int argc, char **argv )
     camera_defaults(camera);
     GUIStates guiStates;
     init_gui_states(guiStates);
-    float dummySlider = 0.f;
+    float instanceCount = 1.f;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -204,6 +204,7 @@ int main( int argc, char **argv )
     GLuint specLocation = glGetUniformLocation(programObject, "Specular");
     GLuint lightLocation = glGetUniformLocation(programObject, "Light");
     GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
+    GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, specLocation, 1);
     if (!checkError("Uniforms"))
@@ -369,12 +370,13 @@ int main( int argc, char **argv )
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
         glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(light));
+        glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
         glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
         glBindVertexArray(vao[0]);
-        glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0, 4);
+        glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
         //glDrawElements(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -403,7 +405,7 @@ int main( int argc, char **argv )
         imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
         sprintf(lineBuffer, "FPS %f", fps);
         imguiLabel(lineBuffer);
-        imguiSlider("Dummy", &dummySlider, 0.0, 3.0, 0.1);
+        imguiSlider("Instance count", &instanceCount, 1.0, 4096.0, 1);
 
         imguiEndScrollArea();
         imguiEndFrame();

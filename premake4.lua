@@ -40,7 +40,7 @@ solution "aogl"
          files { "lib/glfw/lib/*.c", "lib/glfw/*.h" }
          excludes { "lib/glfw/lib/egl_*", "lib/glfw/lib/cocoa_*",  "lib/glfw/lib/win32_*", "lib/glfw/lib/wgl_*" }
          defines { "_GLFW_GLX",  "_GLFW_X11", "_GLFW_USE_OPENGL", "_GLFW_USE_LINUX_JOYSTICKS", "_GLFW_HAS_XRANDR", "_GLFW_HAS_PTHREAD" ,"_GLFW_HAS_SCHED_YIELD", "_GLFW_HAS_GLXGETPROCADDRESS" }
-         buildoptions { "-std=c++11",  "-Wall", "-pthread" }
+         buildoptions { "-Wall", "-pthread" }
 
       configuration {"windows"}
          files { "lib/glfw/lib/*.c", "lib/glfw/*.h" }

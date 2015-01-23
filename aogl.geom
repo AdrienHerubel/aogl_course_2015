@@ -34,7 +34,7 @@ void main()
 	for(int i = 0; i < gl_in.length(); ++i)
 	{
 		vec4 p = gl_in[i].gl_Position;
-		p.y += sin(Time-gl_PrimitiveIDIn);
+		//p.y += sin(Time-gl_PrimitiveIDIn);
 		gl_Position = MVP * p;
 		Out.Texcoord = In[i].Texcoord;
 		Out.CameraSpacePosition = vec3(MV * p);

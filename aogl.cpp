@@ -1,8 +1,13 @@
+#ifdef _MSC_VER
+#define _USE_MATH_DEFINES
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
 #include <iostream>
+
+#include <cmath>
 
 #include "glew/glew.h"
 
@@ -468,7 +473,7 @@ int check_compile_error(GLuint shader, const char ** sourceBuffer)
         char *token, *string;
         string = strdup(sourceBuffer[0]);
         int lc = 0;
-        while ((token = strsep(&string, "\n")) != NULL) {
+        while ((token = strsep_custom(&string, "\n")) != NULL) {
            printf("%3d : %s\n", lc, token);
            ++lc;
         }

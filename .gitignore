@@ -3,7 +3,6 @@
 *.com
 *.class
 *.dll
-*.exe
 *.o
 *.so
 bin/*
@@ -30,6 +29,10 @@ aogl_d
 *.sql
 *.sqlite
 *.vcproj*
+*.vcxproj*
+*.*sdf
+*.suo
+*.sln
 Makefile
 *.make
 *.sublime-workspace

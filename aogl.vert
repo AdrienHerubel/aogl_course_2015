@@ -11,7 +11,7 @@ precision highp int;
 uniform mat4 MVP;
 
 layout(location = POSITION) in vec3 Position;
-layout(location = NORMAL) in vec4 Normal;
+layout(location = NORMAL) in vec3 Normal;
 layout(location = TEXCOORD) in vec2 TexCoord;
 
 out gl_PerVertex

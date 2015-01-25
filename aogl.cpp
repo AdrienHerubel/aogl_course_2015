@@ -223,8 +223,8 @@ int main( int argc, char **argv )
     float cube_normals[] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, };
     int plane_triangleCount = 2;
     int plane_triangleList[] = {0, 1, 2, 2, 1, 3}; 
-    float plane_uvs[] = {0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
-    float plane_vertices[] = {-5.0, -1.0, 5.0, 5.0, -1.0, 5.0, -5.0, -1.0, -5.0, 5.0, -1.0, -5.0};
+    float plane_uvs[] = {0.f, 0.f, 0.f, 50.f, 50.f, 0.f, 50.f, 50.f};
+    float plane_vertices[] = {-50.0, -1.0, 50.0, 50.0, -1.0, 50.0, -50.0, -1.0, -50.0, 50.0, -1.0, -50.0};
     float plane_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
 
     // Vertex Array Object
@@ -360,7 +360,7 @@ int main( int argc, char **argv )
         glm::mat4 objectToWorld;
         glm::mat4 mv = worldToView * objectToWorld;
         glm::mat4 mvp = projection * mv;
-        glm::vec3 light =  glm::normalize(glm::vec3(worldToView * glm::vec4(0.5, 1.0, 0.0, 0.0)));
+        glm::vec4 light = worldToView * glm::vec4(10.0, 10.0, 0.0, 1.0);
 
         // Select textures
         glActiveTexture(GL_TEXTURE0);
@@ -374,7 +374,7 @@ int main( int argc, char **argv )
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-        glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(light));
+        glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(glm::vec3(light) / light.w));
         glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
         glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);

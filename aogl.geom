@@ -13,6 +13,7 @@ layout(triangle_strip, max_vertices = 4) out;
 
 in block
 {
+	int InstanceId;
 	vec2 Texcoord;
 	vec3 CameraSpacePosition;
 	vec3 CameraSpaceNormal;
@@ -29,12 +30,23 @@ uniform mat4 MVP;
 uniform mat4 MV;
 uniform float Time;
 
+const float tstart = 5.0;
+
 void main()
 {	
+	vec3 center = vec3(0.0, 0.0, 0.0);
+	for(int i = 0; i < gl_in.length(); ++i)
+	{
+		center += gl_in[i].gl_Position.xyz;
+	}
+	center /= gl_in.length();
 	for(int i = 0; i < gl_in.length(); ++i)
 	{
 		vec4 p = gl_in[i].gl_Position;
-		//p.y += sin(Time-gl_PrimitiveIDIn);
+		if (Time > tstart)
+		{
+			p += (Time - tstart) * 0.5 * (mod(gl_PrimitiveIDIn+1,20)) * vec4(center, 0.0);
+		}
 		gl_Position = MVP * p;
 		Out.Texcoord = In[i].Texcoord;
 		Out.CameraSpacePosition = vec3(MV * p);

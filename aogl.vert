@@ -16,7 +16,6 @@ uniform int InstanceCount;
 const float PI = 3.14159265359;
 const float TWOPI = 6.28318530718;
 const float PI_2 = 1.57079632679;
-
 const float SPHERE_RADIUS = 10.0;
 
 //layout(std140, column_major) uniform;
@@ -27,6 +26,7 @@ layout(location = TEXCOORD) in vec2 Texcoord;
 
 out block
 {
+	int InstanceId;
 	vec2 Texcoord;
 	vec3 CameraSpacePosition;
 	vec3 CameraSpaceNormal;
@@ -38,12 +38,12 @@ void main()
 	vec3 p = Position;
 	vec3 n = Normal;
 	float t = Time + gl_InstanceID;
+	//t = 0;
 	float ct = cos(t);
 	float st = sin(t);
-	p.x = Position.x * ct + Position.z * st;// + p.x;
-	p.z = -Position.x * st + Position.z * ct;// + p.z;
-	// p.y = Position.y + gl_InstanceID * 1.5;
-	n.x = Normal.x * ct + Normal.z * st;// + p.x;
+	p.x = Position.x * ct + Position.z * st;
+	p.z = -Position.x * st + Position.z * ct;
+	n.x = Normal.x * ct + Normal.z * st;
 	n.z = -Normal.x * st + Normal.z * ct;
 	n.y = Normal.y;
 
@@ -59,8 +59,9 @@ void main()
 
 	p.x +=  SPHERE_RADIUS * ctheta * cphi;
 	p.z +=  SPHERE_RADIUS * ctheta * sphi;
-	p.y +=  SPHERE_RADIUS * stheta;
+	p.y +=  SPHERE_RADIUS + SPHERE_RADIUS * stheta;
 	Out.CameraSpacePosition = p; 
 	Out.CameraSpaceNormal = n; 
+	Out.InstanceId = gl_InstanceID;
 	gl_Position = vec4(p, 1.0);
 }

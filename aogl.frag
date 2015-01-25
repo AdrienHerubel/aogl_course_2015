@@ -28,9 +28,9 @@ void main()
 #if defined(EX1)
 	//FragColor = vec4(1.0, 1.0, 0.0, 1.0);
 	//FragColor = vec4(GeomTexcoord.s, GeomTexcoord.t, 0.0, 1.0);
-	FragColor = vec4(In.Texcoord.s, In.Texcoord.t, 0.0, 1.0);
 	FragColor = vec4(In.CameraSpacePosition.s, In.CameraSpacePosition.t, 0.0, 1.0);
 	FragColor = vec4(In.CameraSpaceNormal.s, In.CameraSpaceNormal.t, 0.0, 1.0);
+	FragColor = vec4(In.Texcoord.s, In.Texcoord.t, 0.0, 1.0);
 #endif
 #if defined(EX2)
 	vec3 color = vec3(0.26, 0.37, 0.85);

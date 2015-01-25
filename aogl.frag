@@ -53,9 +53,10 @@ void main()
 #endif
 #if defined(EX4)
 	vec3 n = normalize(In.CameraSpaceNormal);
-	float ndotl =  dot(n, Light);
-	vec3 h = normalize(Light-normalize(In.CameraSpacePosition));
-	float ndoth = dot(n, h);
+	vec3 l = normalize(Light - In.CameraSpacePosition);
+	float ndotl =  clamp(dot(n, Light), 0.0, 1.0);
+	vec3 h = normalize(l-normalize(In.CameraSpacePosition));
+	float ndoth = clamp(dot(n, h), 0.0, 1.0);
 	vec3 color = texture(Diffuse, In.Texcoord).rgb * ndotl + texture(Specular, In.Texcoord).rrr * pow(ndoth, SpecularPower);
 	FragColor = vec4(color, 1.0);
 #endif

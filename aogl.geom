@@ -30,7 +30,7 @@ uniform mat4 MVP;
 uniform mat4 MV;
 uniform float Time;
 
-const float tstart = 5.0;
+const float tstart = 10.0;
 
 void main()
 {	

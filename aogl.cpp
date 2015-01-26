@@ -191,11 +191,9 @@ int main( int argc, char **argv )
 
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
-    GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
     GLuint programObject = glCreateProgram();
     glAttachShader(programObject, vertShaderId);
-    glAttachShader(programObject, geomShaderId);
     glAttachShader(programObject, fragShaderId);
     glLinkProgram(programObject);
     if (check_link_error(programObject) < 0)
@@ -383,6 +381,7 @@ int main( int argc, char **argv )
         glBindVertexArray(vao[0]);
         glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
         //glDrawElements(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        glProgramUniform1f(programObject, timeLocation, 0.f);
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 

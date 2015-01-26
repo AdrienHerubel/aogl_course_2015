@@ -60,8 +60,8 @@ void main()
 	p.x +=  SPHERE_RADIUS * ctheta * cphi;
 	p.z +=  SPHERE_RADIUS * ctheta * sphi;
 	p.y +=  SPHERE_RADIUS + SPHERE_RADIUS * stheta;
-	Out.CameraSpacePosition = p; 
-	Out.CameraSpaceNormal = n; 
+	Out.CameraSpacePosition = vec3(MV * vec4(p, 1.0));
+	Out.CameraSpaceNormal = vec3(MV * vec4(n, 0.0));
 	Out.InstanceId = gl_InstanceID;
-	gl_Position = vec4(p, 1.0);
+	gl_Position = MVP * vec4(p, 1.0);
 }

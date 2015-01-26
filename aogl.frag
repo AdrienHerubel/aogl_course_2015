@@ -1,4 +1,6 @@
 #version 410 core
+#extension GL_ARB_shader_storage_buffer_object : require
+
 
 #define POSITION	0
 #define NORMAL		1
@@ -12,6 +14,19 @@ uniform sampler2D Diffuse;
 uniform sampler2D Specular;
 uniform vec3 Light;
 uniform float SpecularPower;
+
+struct PointLight
+{
+	vec3 Position;
+	vec3 Color;
+	vec3 Intensity;
+};
+
+layout(std430, binding = 0) buffer pointlight
+{
+	PointLight pointLights[];
+} Lights;
+
 
 layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
 

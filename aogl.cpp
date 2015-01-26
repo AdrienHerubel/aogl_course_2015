@@ -280,6 +280,12 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    GLuint bso;
+    glGenBuffers(1, bso);
+    glBindBuffer(GL_COPY_WRITE_BUFFER, bso;
+    glBufferStorage(GL_COPY_WRITE_BUFFER, glm::higherMultiple<GLint>(VertexSize, Alignement), nullptr, 0);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, glm::higherMultiple<GLint>(VertexSize, Alignement));
+
     // Viewport 
     glViewport( 0, 0, width, height  );
 
@@ -376,6 +382,9 @@ int main( int argc, char **argv )
         glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
         glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);
+
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
 
         // Render vaos
         glBindVertexArray(vao[0]);

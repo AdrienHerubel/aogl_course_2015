@@ -88,13 +88,7 @@ const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
 
 
-struct PointLight
-{
-    glm::vec3 position;
-    float padding;
-    glm::vec3 color;
-    float intensity;
-};
+
 
 int main( int argc, char **argv )
 {
@@ -392,14 +386,22 @@ int main( int argc, char **argv )
         glProgramUniform1f(programObject, timeLocation, t);
 
 
+        struct PointLight
+        {
+            glm::vec3 position;
+            glm::vec3 color;
+            float intensity;
+        };
         int pointLightCount = 1;
-        PointLight pointLight = { glm::vec3( worldToView * glm::vec4(0.0, 2.0, 0.0, 1.0)), 0.f, glm::vec3(1.0, 0.0, 1.0),  1.0};
-
-        glNamedBufferDataEXT(bso, GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(pointLightCount), 0, GL_DYNAMIC_COPY);
-        void * pointLightBuffer = glMapNamedBuffer(bso, GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-        glUnmapNamedBuffer(bso, GL_SHADER_STORAGE_BUFFER);
+        PointLight pointLight = { glm::vec3( worldToView * glm::vec4(0.0, 1.0, 0.0, 1.0)),  glm::vec3(1.0, 0.0, 0.0),  1.0};
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(pointLightCount), 0, GL_DYNAMIC_COPY);
+        void * pointLightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+        ((int*) pointLightBuffer)[0] = pointLightCount;
+        ((PointLight*) ((int*) pointLightBuffer + 1))[0] = pointLight;
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
 
         // Render vaos

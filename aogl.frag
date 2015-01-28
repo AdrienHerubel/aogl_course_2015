@@ -46,7 +46,7 @@ vec3 pointLight( in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularCol
 		float ndotl =  max(dot(n, l), 0.0);
 		vec3 h = normalize(l+v);
 		float ndoth = max(dot(n, h), 0.0);
-		float d = distance(PointLights.Lights[i].Position, In.CameraSpacePosition);
+		float d = 1.f; //distance(PointLights.Lights[i].Position, In.CameraSpacePosition);
 		float att = 1.f / (d*d);
 		outColor +=  att * PointLights.Lights[i].Color * PointLights.Lights[i].Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower));
 	}

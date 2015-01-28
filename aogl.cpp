@@ -282,13 +282,12 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    // Generate Shader Storage Objects
+    GLuint ssbo[3];
+    glGenBuffers(3, ssbo);
+
     checkError("Buffer Init");
 
-    GLuint bso;
-    glGenBuffers(1, &bso);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 3*sizeof(float), 0, GL_DYNAMIC_COPY);
-    checkError("Buffer Storage Init");
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -393,6 +392,7 @@ int main( int argc, char **argv )
             glm::vec3 color;
             float intensity;
         };
+
         struct DirectionalLight
         {
             glm::vec3 position;
@@ -400,28 +400,66 @@ int main( int argc, char **argv )
             glm::vec3 color;
             float intensity;
         };
+
+        struct SpotLight
+        {
+            glm::vec3 position;
+            float angle;
+            glm::vec3 direction;
+            float penumbraAngle;
+            glm::vec3 color;
+            float intensity;
+        };
+
         const int pointLightCount = 3;
         PointLight pointLight[] = { 
                                     {glm::vec3( worldToView * glm::vec4(-5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(1.0, 0.0, 0.0),  1.0},
                                     {glm::vec3( worldToView * glm::vec4(5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(0.0, 1.0, 0.0),  1.0},
                                     {glm::vec3( worldToView * glm::vec4(0.0, 1.0, 5.0, 1.0)), 0,  glm::vec3(0.0, 0.0, 1.0),  1.0}
                                     };
-        const int directionalLightCount = 1;
+        const int directionalLightCount = 2;
         DirectionalLight directionalLight[] = { 
-                                    {glm::vec3( worldToView * glm::vec4(0.0, 1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 1.0, 1.0),  1.0}
+                                    {glm::vec3( worldToView * glm::vec4(0.0, -1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 1.0, 1.0),  0.1},
+                                    {glm::vec3( worldToView * glm::vec4(0.5, -1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 0.4, 1.0),  0.1}
+                                    };
+        const int spotLightCount = 2;
+        SpotLight spotLight[] = { 
+                                    //{glm::vec3( 0.f, 0.1f, 0.f), 0.5f, glm::vec3( 0.1f, 0.f, 0.1f), 15.f,  glm::vec3(1.0, 1.0, 1.0),  1.0},
+                                    {glm::vec3( worldToView * glm::vec4(0.0, 5.0, 0.0, 1.0)), 45.f, glm::vec3( worldToView * glm::vec4(0.0, -1.0, 0.0, 0.0)), 60.f,  glm::vec3(1.0, 1.0, 1.0),  1.0},
+                                    {glm::vec3( worldToView * glm::vec4(5.0, 1.0, 0.0, 1.0)), 45.f, glm::vec3( worldToView * glm::vec4(10.0, -1.0, 0.0, 0.0)), 46.f,  glm::vec3(1.0, 0.4, 1.0),  1.0}
                                     };
 
+        int pointLightBufferSize = sizeof(PointLight) * pointLightCount + sizeof(int) * 4;
+        int directionalLightBufferSize = sizeof(DirectionalLight) * directionalLightCount + sizeof(int) * 4;
+        int spotLightBufferSize = sizeof(SpotLight) * spotLightCount + sizeof(int) * 4;
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(DirectionalLight) * directionalLightCount + sizeof(int) * 8, 0, GL_DYNAMIC_COPY);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, pointLightBufferSize, 0, GL_DYNAMIC_COPY);
         void * lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-
         ((int*) lightBuffer)[0] = pointLightCount;
         for (int i = 0; i < pointLightCount; ++i)
             ((PointLight*) ((int*) lightBuffer + 4))[i] = pointLight[i];
-
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, directionalLightBufferSize, 0, GL_DYNAMIC_COPY);
+        lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+        ((int*) lightBuffer)[0] = directionalLightCount;
+        for (int i = 0; i < directionalLightCount; ++i)
+            ((DirectionalLight*) ((int*) lightBuffer + 4))[i] = directionalLight[i];
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, spotLightBufferSize, 0, GL_DYNAMIC_COPY);
+        lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+        ((int*) lightBuffer)[0] = spotLightCount;
+        for (int i = 0; i < spotLightCount; ++i)
+            ((SpotLight*) ((int*) lightBuffer + 4))[i] = spotLight[i];
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, ssbo[0], 0, pointLightBufferSize);
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1], 0, directionalLightBufferSize);
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, ssbo[2], 0, spotLightBufferSize);
 
         // Render vaos
         glBindVertexArray(vao[0]);

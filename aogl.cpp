@@ -374,7 +374,6 @@ int main( int argc, char **argv )
         glm::mat4 objectToWorld;
         glm::mat4 mv = worldToView * objectToWorld;
         glm::mat4 mvp = projection * mv;
-        glm::vec4 light = worldToView * glm::vec4(10.0, 10.0, 0.0, 1.0);
 
         // Select textures
         glActiveTexture(GL_TEXTURE0);
@@ -388,17 +387,19 @@ int main( int argc, char **argv )
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-        glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(glm::vec3(light) / light.w));
         glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
         glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);
 
 
-        PointLight pointLight = { glm::vec3(light), 0.f, glm::vec3(1.0, 1.0, 1.0),  1.0};
+        int pointLightCount = 1;
+        PointLight pointLight = { glm::vec3( worldToView * glm::vec4(0.0, 2.0, 0.0, 1.0)), 0.f, glm::vec3(1.0, 0.0, 1.0),  1.0};
+
+        glNamedBufferDataEXT(bso, GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(pointLightCount), 0, GL_DYNAMIC_COPY);
+        void * pointLightBuffer = glMapNamedBuffer(bso, GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+        glUnmapNamedBuffer(bso, GL_SHADER_STORAGE_BUFFER);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight), &pointLight, GL_DYNAMIC_COPY);
-
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
 
         // Render vaos

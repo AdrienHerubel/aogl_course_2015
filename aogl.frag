@@ -1,4 +1,4 @@
-#version 410 core
+#version 430 core
 #extension GL_ARB_shader_storage_buffer_object : require
 
 
@@ -12,7 +12,6 @@ precision highp int;
 uniform float Time;
 uniform sampler2D Diffuse;
 uniform sampler2D Specular;
-uniform vec3 Light;
 uniform float SpecularPower;
 
 struct PointLight
@@ -22,10 +21,11 @@ struct PointLight
 	float Intensity;
 };
 
-layout(std430, binding = 0) buffer pointlight
+layout(std430, binding = 0) buffer pointlights
 {
-	PointLight pointLights[];
-} Lights;
+	//int count;
+	PointLight Lights[];
+} PointLights;
 
 
 layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
@@ -39,11 +39,18 @@ in block
 
 vec3 pointLight( in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularColor, in float specularPower)
 {
-	vec3 l = normalize(Lights.pointLights[0].Position  - In.CameraSpacePosition);
-	float ndotl =  max(dot(n, l), 0.0);
-	vec3 h = normalize(l+v);
-	float ndoth = max(dot(n, h), 0.0);
-	return Lights.pointLights[0].Color * Lights.pointLights[0].Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower));
+	vec3 outColor = vec3(0);
+	// for (int i = 0; i < PointLights.count; ++i) {
+	for (int i = 0; i < 1; ++i) {
+		vec3 l = normalize(PointLights.Lights[i].Position  - In.CameraSpacePosition);
+		float ndotl =  max(dot(n, l), 0.0);
+		vec3 h = normalize(l+v);
+		float ndoth = max(dot(n, h), 0.0);
+		float d = distance(PointLights.Lights[i].Position, In.CameraSpacePosition);
+		float att = 1.f / (d*d);
+		outColor +=  att * PointLights.Lights[i].Color * PointLights.Lights[i].Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower));
+	}
+	return outColor;
 }
 
 void main()

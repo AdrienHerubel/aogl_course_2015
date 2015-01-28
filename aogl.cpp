@@ -88,6 +88,14 @@ const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
 
 
+struct PointLight
+{
+    glm::vec3 position;
+    float padding;
+    glm::vec3 color;
+    float intensity;
+};
+
 int main( int argc, char **argv )
 {
     int width = 1024, height= 768;
@@ -280,11 +288,13 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    checkError("Buffer Init");
+
     GLuint bso;
-    glGenBuffers(1, bso);
-    glBindBuffer(GL_COPY_WRITE_BUFFER, bso;
-    glBufferStorage(GL_COPY_WRITE_BUFFER, glm::higherMultiple<GLint>(VertexSize, Alignement), nullptr, 0);
-    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, glm::higherMultiple<GLint>(VertexSize, Alignement));
+    glGenBuffers(1, &bso);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 3*sizeof(float), 0, GL_DYNAMIC_COPY);
+    checkError("Buffer Storage Init");
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -383,6 +393,11 @@ int main( int argc, char **argv )
         glProgramUniform1f(programObject, specularPowerLocation, 30.f);
         glProgramUniform1f(programObject, timeLocation, t);
 
+
+        PointLight pointLight = { glm::vec3(light), 0.f, glm::vec3(1.0, 1.0, 1.0),  1.0};
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight), &pointLight, GL_DYNAMIC_COPY);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
 

@@ -19,7 +19,7 @@ struct PointLight
 {
 	vec3 Position;
 	vec3 Color;
-	vec3 Intensity;
+	float Intensity;
 };
 
 layout(std430, binding = 0) buffer pointlight
@@ -39,22 +39,25 @@ in block
 
 vec3 pointLight( in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularColor, in float specularPower)
 {
-	vec3 l = normalize(Light - In.CameraSpacePosition);
+	vec3 l = normalize(Lights.pointLights[0].Position  - In.CameraSpacePosition);
 	float ndotl =  max(dot(n, l), 0.0);
 	vec3 h = normalize(l+v);
 	float ndoth = max(dot(n, h), 0.0);
-	return diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower);
+	return Lights.pointLights[0].Color * Lights.pointLights[0].Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower));
 }
 
 void main()
 {
 	vec3 n = normalize(In.CameraSpaceNormal);
+	if (!gl_FrontFacing)
+		n = -n;
 	vec3 v = normalize(-In.CameraSpacePosition);
 	vec3 diffuseColor = texture(Diffuse, In.Texcoord).rgb;
 	vec3 specularColor = texture(Specular, In.Texcoord).rrr;
 
 	FragColor = vec4(pointLight(n, v, diffuseColor, specularColor, SpecularPower), 1.0);
-
+		
+	//FragColor = vec4(n, 1.0);
 	// FragColor = vec4(vec3(ndotl), 1.0);
 	// FragColor = vec4(vec3(n), 1.0);
 	// FragColor = vec4(vec3(l), 1.0);

@@ -389,19 +389,38 @@ int main( int argc, char **argv )
         struct PointLight
         {
             glm::vec3 position;
+            int padding;
             glm::vec3 color;
             float intensity;
         };
-        int pointLightCount = 1;
-        PointLight pointLight = { glm::vec3( worldToView * glm::vec4(0.0, 1.0, 0.0, 1.0)),  glm::vec3(1.0, 0.0, 0.0),  1.0};
+        struct DirectionalLight
+        {
+            glm::vec3 position;
+            int padding;
+            glm::vec3 color;
+            float intensity;
+        };
+        const int pointLightCount = 3;
+        PointLight pointLight[] = { 
+                                    {glm::vec3( worldToView * glm::vec4(-5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(1.0, 0.0, 0.0),  1.0},
+                                    {glm::vec3( worldToView * glm::vec4(5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(0.0, 1.0, 0.0),  1.0},
+                                    {glm::vec3( worldToView * glm::vec4(0.0, 1.0, 5.0, 1.0)), 0,  glm::vec3(0.0, 0.0, 1.0),  1.0}
+                                    };
+        const int directionalLightCount = 1;
+        DirectionalLight directionalLight[] = { 
+                                    {glm::vec3( worldToView * glm::vec4(0.0, 1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 1.0, 1.0),  1.0}
+                                    };
+
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, bso);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(pointLightCount), 0, GL_DYNAMIC_COPY);
-        void * pointLightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-        ((int*) pointLightBuffer)[0] = pointLightCount;
-        ((PointLight*) ((int*) pointLightBuffer + 1))[0] = pointLight;
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(PointLight) * pointLightCount + sizeof(DirectionalLight) * directionalLightCount + sizeof(int) * 8, 0, GL_DYNAMIC_COPY);
+        void * lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
 
+        ((int*) lightBuffer)[0] = pointLightCount;
+        for (int i = 0; i < pointLightCount; ++i)
+            ((PointLight*) ((int*) lightBuffer + 4))[i] = pointLight[i];
+
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bso);
 
         // Render vaos

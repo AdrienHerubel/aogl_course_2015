@@ -161,7 +161,11 @@ int main( int argc, char **argv )
     camera_defaults(camera);
     GUIStates guiStates;
     init_gui_states(guiStates);
-    float instanceCount = 1.f;
+    float instanceCount = 2500;
+    float pointLightCount = 10;
+    float directionalLightCount = 1;
+    float spotLightCount = 2;
+    float speed = 1.0;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -294,7 +298,7 @@ int main( int argc, char **argv )
 
     do
     {
-        t = glfwGetTime();
+        t = glfwGetTime() * speed;
 
         // Mouse states
         int leftButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT );
@@ -411,23 +415,7 @@ int main( int argc, char **argv )
             float intensity;
         };
 
-        const int pointLightCount = 3;
-        PointLight pointLight[] = { 
-                                    {glm::vec3( worldToView * glm::vec4(-5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(1.0, 0.0, 0.0),  1.0},
-                                    {glm::vec3( worldToView * glm::vec4(5.0, 1.0, 0.0, 1.0)), 0,  glm::vec3(0.0, 1.0, 0.0),  1.0},
-                                    {glm::vec3( worldToView * glm::vec4(0.0, 1.0, 5.0, 1.0)), 0,  glm::vec3(0.0, 0.0, 1.0),  1.0}
-                                    };
-        const int directionalLightCount = 2;
-        DirectionalLight directionalLight[] = { 
-                                    {glm::vec3( worldToView * glm::vec4(0.0, -1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 1.0, 1.0),  0.1},
-                                    {glm::vec3( worldToView * glm::vec4(0.5, -1.0, 0.0, 0.0)), 0,  glm::vec3(1.0, 0.4, 1.0),  0.1}
-                                    };
-        const int spotLightCount = 2;
-        SpotLight spotLight[] = { 
-                                    //{glm::vec3( 0.f, 0.1f, 0.f), 0.5f, glm::vec3( 0.1f, 0.f, 0.1f), 15.f,  glm::vec3(1.0, 1.0, 1.0),  1.0},
-                                    {glm::vec3( worldToView * glm::vec4(0.0, 5.0, 0.0, 1.0)), 45.f, glm::vec3( worldToView * glm::vec4(0.0, -1.0, 0.0, 0.0)), 60.f,  glm::vec3(1.0, 1.0, 1.0),  1.0},
-                                    {glm::vec3( worldToView * glm::vec4(5.0, 1.0, 0.0, 1.0)), 45.f, glm::vec3( worldToView * glm::vec4(10.0, -1.0, 0.0, 0.0)), 46.f,  glm::vec3(1.0, 0.4, 1.0),  1.0}
-                                    };
+
 
         int pointLightBufferSize = sizeof(PointLight) * pointLightCount + sizeof(int) * 4;
         int directionalLightBufferSize = sizeof(DirectionalLight) * directionalLightCount + sizeof(int) * 4;
@@ -437,24 +425,36 @@ int main( int argc, char **argv )
         glBufferData(GL_SHADER_STORAGE_BUFFER, pointLightBufferSize, 0, GL_DYNAMIC_COPY);
         void * lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
         ((int*) lightBuffer)[0] = pointLightCount;
-        for (int i = 0; i < pointLightCount; ++i)
-            ((PointLight*) ((int*) lightBuffer + 4))[i] = pointLight[i];
+        for (int i = 0; i < pointLightCount; ++i) {
+            PointLight p = { glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t))  * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,  
+                             glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),  
+                             0.5f + fabsf(cosf(t+i))};
+            ((PointLight*) ((int*) lightBuffer + 4))[i] = p;
+        }
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
         glBufferData(GL_SHADER_STORAGE_BUFFER, directionalLightBufferSize, 0, GL_DYNAMIC_COPY);
         lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
         ((int*) lightBuffer)[0] = directionalLightCount;
-        for (int i = 0; i < directionalLightCount; ++i)
-            ((DirectionalLight*) ((int*) lightBuffer + 4))[i] = directionalLight[i];
+        for (int i = 0; i < directionalLightCount; ++i) {
+            DirectionalLight directionalLight = { glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 0,  
+                                                  glm::vec3(1.0, 1.0, 1.0),  
+                                                  0.03 + fabsf(cosf(i)) * 0.1f};
+            ((DirectionalLight*) ((int*) lightBuffer + 4))[i] = directionalLight;
+        }
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
         glBufferData(GL_SHADER_STORAGE_BUFFER, spotLightBufferSize, 0, GL_DYNAMIC_COPY);
         lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
         ((int*) lightBuffer)[0] = spotLightCount;
-        for (int i = 0; i < spotLightCount; ++i)
-            ((SpotLight*) ((int*) lightBuffer + 4))[i] = spotLight[i];
+        for (int i = 0; i < spotLightCount; ++i)  {
+            SpotLight spotLight = { glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t))  * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i), 
+                                    glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),  
+                                    glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))),  1.0};
+            ((SpotLight*) ((int*) lightBuffer + 4))[i] = spotLight;
+        }
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, ssbo[0], 0, pointLightBufferSize);
@@ -493,7 +493,10 @@ int main( int argc, char **argv )
         imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
         sprintf(lineBuffer, "FPS %f", fps);
         imguiLabel(lineBuffer);
-        imguiSlider("Instance count", &instanceCount, 1.0, 4096.0, 1);
+        imguiSlider("Speed", &speed, 0.01, 1.0, 0.01);
+        imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
+        imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
+        imguiSlider("Spot Lights", &spotLightCount, 0.0, 100.0, 1);
 
         imguiEndScrollArea();
         imguiEndFrame();

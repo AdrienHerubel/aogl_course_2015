@@ -48,10 +48,13 @@ void main()
 	n.y = Normal.y;
 
 	float square = sqrt(InstanceCount);
-	float square_delta = 2.0; //SQUARE_SIZE / square;
+	float square_delta = 2.0;
 
-	p.x +=  square_delta * floor(gl_InstanceID / square);
-	p.z +=  square_delta * (gl_InstanceID - (square * floor(gl_InstanceID/square))) ;
+	if (gl_InstanceID > 0) {
+		p.x +=  square_delta * floor(gl_InstanceID / square) - square;
+		p.z +=  square_delta * (gl_InstanceID - (square * floor(gl_InstanceID/square))) - square;
+		p.y +=  sin(floor(gl_InstanceID / square)) + sin((gl_InstanceID - (square * floor(gl_InstanceID/square)))) ;
+	}
 
 	Out.CameraSpacePosition = vec3(MV * vec4(p, 1.0));
 	Out.CameraSpaceNormal = vec3(MV * vec4(n, 0.0));

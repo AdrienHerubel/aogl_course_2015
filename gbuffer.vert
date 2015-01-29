@@ -3,30 +3,13 @@
 #define POSITION	0
 #define NORMAL		1
 #define TEXCOORD	2
-#define FRAG_COLOR	0
-
-precision highp float;
-precision highp int;
-
-uniform mat4 MVP;
-uniform mat4 MV;
-uniform float Time;
-uniform int InstanceCount;
-
-const float PI = 3.14159265359;
-const float TWOPI = 6.28318530718;
-const float PI_2 = 1.57079632679;
-const float SQUARE_SIZE = 10.0;
-
-//layout(std140, column_major) uniform;
 
 layout(location = POSITION) in vec3 Position;
 layout(location = NORMAL) in vec3 Normal;
-layout(location = TEXCOORD) in vec2 Texcoord;
+layout(location = TEXCOORD) in vec3 TexCoord;
 
 out block
 {
-	int  InstanceId;
 	vec2 Texcoord;
 	vec3 CameraSpacePosition;
 	vec3 CameraSpaceNormal;
@@ -46,7 +29,7 @@ void main()
 	n.z = -Normal.x * st + Normal.z * ct;
 	n.y = Normal.y;
 
-	float square = sqrt(InstanceCount);
+	float square = sqrt(2500);
 	float square_delta = 2.0;
 
 	if (gl_InstanceID > 0) {

@@ -16,7 +16,7 @@ uniform int InstanceCount;
 const float PI = 3.14159265359;
 const float TWOPI = 6.28318530718;
 const float PI_2 = 1.57079632679;
-const float SPHERE_RADIUS = 10.0;
+const float SQUARE_SIZE = 10.0;
 
 //layout(std140, column_major) uniform;
 
@@ -47,19 +47,12 @@ void main()
 	n.z = -Normal.x * st + Normal.z * ct;
 	n.y = Normal.y;
 
-	float theta_sub;
-	float phi_sub;
-	theta_sub = phi_sub = sqrt(InstanceCount);
-	float theta = floor(gl_InstanceID/theta_sub)  * (PI/theta_sub) - PI_2;
-	float phi = (gl_InstanceID - (phi_sub * floor(gl_InstanceID/phi_sub)))   * (TWOPI/phi_sub) - PI; 
-	float ctheta = cos(theta);
-	float stheta = sin(theta);
-	float cphi = cos(phi);
-	float sphi = sin(phi);
+	float square = sqrt(InstanceCount);
+	float square_delta = 2.0; //SQUARE_SIZE / square;
 
-	p.x +=  SPHERE_RADIUS * ctheta * cphi;
-	p.z +=  SPHERE_RADIUS * ctheta * sphi;
-	p.y +=  SPHERE_RADIUS + SPHERE_RADIUS * stheta;
+	p.x +=  square_delta * floor(gl_InstanceID / square);
+	p.z +=  square_delta * (gl_InstanceID - (square * floor(gl_InstanceID/square))) ;
+
 	Out.CameraSpacePosition = vec3(MV * vec4(p, 1.0));
 	Out.CameraSpaceNormal = vec3(MV * vec4(n, 0.0));
 	Out.InstanceId = gl_InstanceID;

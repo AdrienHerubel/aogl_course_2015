@@ -36,5 +36,5 @@ void main()
 	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb;
 	float specularColor = texture(Specular, In.Texcoord).rrr;
 	Color = vec4(diffuseColor, specularColor);
-	Normal = vec4(n, specularPower);
+	Normal = vec4(n, SpecularPower);
 }

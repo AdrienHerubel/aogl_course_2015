@@ -205,17 +205,37 @@ int main( int argc, char **argv )
     if (check_link_error(programObject) < 0)
         exit(1);
     
+    // Try to load and compile blit shaders
+    GLuint vertBlitShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "blit.vert");
+    GLuint fragBlitShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "blit.frag");
+    GLuint blitProgramObject = glCreateProgram();
+    glAttachShader(blitProgramObject, vertBlitShaderId);
+    glAttachShader(blitProgramObject, fragBlitShaderId);
+    glLinkProgram(blitProgramObject);
+    if (check_link_error(blitProgramObject) < 0)
+        exit(1);
+
+    // Try to load and compile gbuffer shaders
+    GLuint vertgbufferShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "gbuffer.vert");
+    GLuint fraggbufferShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "gbuffer.frag");
+    GLuint gbufferProgramObject = glCreateProgram();
+    glAttachShader(gbufferProgramObject, vertgbufferShaderId);
+    glAttachShader(gbufferProgramObject, fraggbufferShaderId);
+    glLinkProgram(gbufferProgramObject);
+    if (check_link_error(gbufferProgramObject) < 0)
+        exit(1);
+
     // Upload uniforms
-    GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
-    GLuint mvLocation = glGetUniformLocation(programObject, "MV");
-    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
-    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
-    GLuint specLocation = glGetUniformLocation(programObject, "Specular");
-    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
-    GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
-    GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
-    glProgramUniform1i(programObject, diffuseLocation, 0);
-    glProgramUniform1i(programObject, specLocation, 1);
+    GLuint mvpLocation = glGetUniformLocation(gbufferProgramObject, "MVP");
+    GLuint mvLocation = glGetUniformLocation(gbufferProgramObject, "MV");
+    GLuint timeLocation = glGetUniformLocation(gbufferProgramObject, "Time");
+    GLuint diffuseLocation = glGetUniformLocation(gbufferProgramObject, "Diffuse");
+    GLuint specLocation = glGetUniformLocation(gbufferProgramObject, "Specular");
+    GLuint lightLocation = glGetUniformLocation(gbufferProgramObject, "Light");
+    GLuint specularPowerLocation = glGetUniformLocation(gbufferProgramObject, "SpecularPower");
+    GLuint instanceCountLocation = glGetUniformLocation(gbufferProgramObject, "InstanceCount");
+    glProgramUniform1i(gbufferProgramObject, diffuseLocation, 0);
+    glProgramUniform1i(gbufferProgramObject, specLocation, 1);
     if (!checkError("Uniforms"))
         exit(1);
 
@@ -230,14 +250,17 @@ int main( int argc, char **argv )
     float plane_uvs[] = {0.f, 0.f, 0.f, 50.f, 50.f, 0.f, 50.f, 50.f};
     float plane_vertices[] = {-50.0, -1.0, 50.0, 50.0, -1.0, 50.0, -50.0, -1.0, -50.0, 50.0, -1.0, -50.0};
     float plane_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
+    int   quad_triangleCount = 2;
+    int   quad_triangleList[] = {0, 1, 2, 2, 1, 3}; 
+    float quad_vertices[] =  {-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0};
 
     // Vertex Array Object
-    GLuint vao[2];
-    glGenVertexArrays(2, vao);
+    GLuint vao[3];
+    glGenVertexArrays(3, vao);
 
     // Vertex Buffer Objects
-    GLuint vbo[8];
-    glGenBuffers(8, vbo);
+    GLuint vbo[10];
+    glGenBuffers(10, vbo);
 
     // Cube
     glBindVertexArray(vao[0]);
@@ -281,17 +304,73 @@ int main( int argc, char **argv )
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
     glBufferData(GL_ARRAY_BUFFER, sizeof(plane_uvs), plane_uvs, GL_STATIC_DRAW);
 
+    // Quad
+    glBindVertexArray(vao[2]);
+    // Bind indices and upload data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[8]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_triangleList), quad_triangleList, GL_STATIC_DRAW);
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[9]);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+
     // Unbind everything. Potentially illegal on some implementations
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    // Generate Shader Storage Objects
-    GLuint ssbo[3];
-    glGenBuffers(3, ssbo);
-
     checkError("Buffer Init");
 
+    // Init frame buffers
+    GLuint gbufferFbo;
+    GLuint gbufferTextures[3];
+    GLuint gbufferDrawBuffers[2];
+    glGenTextures(3, gbufferTextures);
+
+    // Create color texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create normal texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create depth texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create Framebuffer Object
+    glGenFramebuffers(1, &gbufferFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
+
+    // Attach textures to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
+    gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
+    gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Error on building framebuffer\n");
+        exit( EXIT_FAILURE );
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -379,87 +458,14 @@ int main( int argc, char **argv )
         glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         // Select shader
-        glUseProgram(programObject);
+        glUseProgram(gbufferProgramObject);
 
         // Upload uniforms
-        glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
-        glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-        glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
-        glProgramUniform1f(programObject, specularPowerLocation, 30.f);
-        glProgramUniform1f(programObject, timeLocation, t);
-
-
-        struct PointLight
-        {
-            glm::vec3 position;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-
-        struct DirectionalLight
-        {
-            glm::vec3 position;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-
-        struct SpotLight
-        {
-            glm::vec3 position;
-            float angle;
-            glm::vec3 direction;
-            float penumbraAngle;
-            glm::vec3 color;
-            float intensity;
-        };
-
-
-
-        int pointLightBufferSize = sizeof(PointLight) * pointLightCount + sizeof(int) * 4;
-        int directionalLightBufferSize = sizeof(DirectionalLight) * directionalLightCount + sizeof(int) * 4;
-        int spotLightBufferSize = sizeof(SpotLight) * spotLightCount + sizeof(int) * 4;
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, pointLightBufferSize, 0, GL_DYNAMIC_COPY);
-        void * lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-        ((int*) lightBuffer)[0] = pointLightCount;
-        for (int i = 0; i < pointLightCount; ++i) {
-            PointLight p = { glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t))  * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,  
-                             glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),  
-                             0.5f + fabsf(cosf(t+i))};
-            ((PointLight*) ((int*) lightBuffer + 4))[i] = p;
-        }
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[1]);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, directionalLightBufferSize, 0, GL_DYNAMIC_COPY);
-        lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-        ((int*) lightBuffer)[0] = directionalLightCount;
-        for (int i = 0; i < directionalLightCount; ++i) {
-            DirectionalLight directionalLight = { glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 0,  
-                                                  glm::vec3(1.0, 1.0, 1.0),  
-                                                  0.03 + fabsf(cosf(i)) * 0.1f};
-            ((DirectionalLight*) ((int*) lightBuffer + 4))[i] = directionalLight;
-        }
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[2]);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, spotLightBufferSize, 0, GL_DYNAMIC_COPY);
-        lightBuffer = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-        ((int*) lightBuffer)[0] = spotLightCount;
-        for (int i = 0; i < spotLightCount; ++i)  {
-            SpotLight spotLight = { glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t))  * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i), 
-                                    glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),  
-                                    glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))),  1.0};
-            ((SpotLight*) ((int*) lightBuffer + 4))[i] = spotLight;
-        }
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, ssbo[0], 0, pointLightBufferSize);
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, ssbo[1], 0, directionalLightBufferSize);
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, ssbo[2], 0, spotLightBufferSize);
+        glProgramUniformMatrix4fv(gbufferProgramObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniformMatrix4fv(gbufferProgramObject, mvLocation, 1, 0, glm::value_ptr(mv));
+        glProgramUniform1i(gbufferProgramObject, instanceCountLocation, (int) instanceCount);
+        glProgramUniform1f(gbufferProgramObject, specularPowerLocation, 30.f);
+        glProgramUniform1f(gbufferProgramObject, timeLocation, t);
 
         // Render vaos
         glBindVertexArray(vao[0]);
@@ -615,7 +621,7 @@ GLuint compile_shader_from_file(GLenum shaderType, const char * path)
     long fileSize = ftell ( shaderFileDesc );
     rewind ( shaderFileDesc );
     char * buffer = new char[fileSize + 1];
-    fread( buffer, 1, fileSize, shaderFileDesc );
+    size_t t = fread( buffer, 1, fileSize, shaderFileDesc );
     buffer[fileSize] = '\0';
     GLuint shaderObject = compile_shader(shaderType, buffer, fileSize );
     delete[] buffer;

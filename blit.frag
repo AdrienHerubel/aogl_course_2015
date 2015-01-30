@@ -11,6 +11,6 @@ layout(location = 0, index = 0) out vec4  Color;
 
 void main(void)
 {
-	vec3 color = texture(Texture1, Texcoord).rgb;
+	vec3 color = texture(Texture1, In.Texcoord).rgb;
 	Color = vec4(color, 1.0);
 }

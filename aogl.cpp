@@ -195,16 +195,6 @@ int main( int argc, char **argv )
     fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
     checkError("Texture Initialization");
 
-    // Try to load and compile shaders
-    GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
-    GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
-    GLuint programObject = glCreateProgram();
-    glAttachShader(programObject, vertShaderId);
-    glAttachShader(programObject, fragShaderId);
-    glLinkProgram(programObject);
-    if (check_link_error(programObject) < 0)
-        exit(1);
-    
     // Try to load and compile blit shaders
     GLuint vertBlitShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "blit.vert");
     GLuint fragBlitShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "blit.frag");
@@ -264,7 +254,7 @@ int main( int argc, char **argv )
     GLuint instanceCountLocation = glGetUniformLocation(gbufferProgramObject, "InstanceCount");
     GLuint blitTextureLocation = glGetUniformLocation(blitProgramObject, "Texture");
     glProgramUniform1i(blitProgramObject, blitTextureLocation, 0);
-
+ 
     GLuint pointlightColorLocation = glGetUniformLocation(pointlightProgramObject, "ColorBuffer");
     GLuint pointlightNormalLocation = glGetUniformLocation(pointlightProgramObject, "NormalBuffer");
     GLuint pointlightDepthLocation = glGetUniformLocation(pointlightProgramObject, "DepthBuffer");
@@ -292,7 +282,7 @@ int main( int argc, char **argv )
     glProgramUniform1i(spotlightProgramObject, spotlightNormalLocation, 1);
     glProgramUniform1i(spotlightProgramObject, spotlightDepthLocation, 2);
 
-    if (!checkError("Uniforms"))
+   if (!checkError("Uniforms"))
         exit(1);
 
     // Load geometry
@@ -407,7 +397,7 @@ int main( int argc, char **argv )
 
     // Create normal texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -553,7 +543,7 @@ int main( int argc, char **argv )
         glBindVertexArray(vao[0]);
         glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
         //glDrawElements(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        glProgramUniform1f(programObject, timeLocation, 0.f);
+        glProgramUniform1f(gbufferProgramObject, timeLocation, 0.f);
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 

@@ -1,5 +1,4 @@
-#version 430 core
-#extension GL_ARB_shader_storage_buffer_object : require
+#version 410 core
 
 #define POSITION	0
 #define NORMAL		1
@@ -34,7 +33,7 @@ void main()
 	if (!gl_FrontFacing)
 		n = -n;
 	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb;
-	float specularColor = texture(Specular, In.Texcoord).rrr;
+	float specularColor = texture(Specular, In.Texcoord).r;
 	Color = vec4(diffuseColor, specularColor);
 	Normal = vec4(n, SpecularPower);
 }

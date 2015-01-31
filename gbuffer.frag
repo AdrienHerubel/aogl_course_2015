@@ -30,6 +30,10 @@ in block
 void main()
 {
 	vec3 n = normalize(In.CameraSpaceNormal);
+	// gl_FrontFacing is not working on MacOSX Intel cards
+	// Try this instead :
+	// if (dot(n, normalize(-In.CameraSpacePosition)) < 0.)
+	//	 Color = vec4(vec3(1.0), 1.0);
 	if (!gl_FrontFacing)
 		n = -n;
 	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb;

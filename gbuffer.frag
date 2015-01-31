@@ -18,8 +18,8 @@ uniform sampler2D Diffuse;
 uniform sampler2D Specular;
 uniform float SpecularPower;
 
-layout(location = COLOR, index = 0) out vec4 Color;
-layout(location = NORMAL, index = 0) out vec4 Normal;
+layout(location = COLOR ) out vec4 Color;
+layout(location = NORMAL) out vec4 Normal;
 
 in block
 {

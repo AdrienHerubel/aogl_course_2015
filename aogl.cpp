@@ -225,6 +225,34 @@ int main( int argc, char **argv )
     if (check_link_error(gbufferProgramObject) < 0)
         exit(1);
 
+    // Try to load and compile pointlight shaders
+    GLuint vertlightShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "light.vert");
+    GLuint fragpointlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "pointlight.frag");
+    GLuint pointlightProgramObject = glCreateProgram();
+    glAttachShader(pointlightProgramObject, vertlightShaderId);
+    glAttachShader(pointlightProgramObject, fragpointlightShaderId);
+    glLinkProgram(pointlightProgramObject);
+    if (check_link_error(pointlightProgramObject) < 0)
+        exit(1);
+
+    // Try to load and compile directionallight shaders
+    GLuint fragdirectionallightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionallight.frag");
+    GLuint directionallightProgramObject = glCreateProgram();
+    glAttachShader(directionallightProgramObject, vertlightShaderId);
+    glAttachShader(directionallightProgramObject, fragdirectionallightShaderId);
+    glLinkProgram(directionallightProgramObject);
+    if (check_link_error(directionallightProgramObject) < 0)
+        exit(1);
+
+    // Try to load and compile spotlight shaders
+    GLuint fragspotlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "spotlight.frag");
+    GLuint spotlightProgramObject = glCreateProgram();
+    glAttachShader(spotlightProgramObject, vertlightShaderId);
+    glAttachShader(spotlightProgramObject, fragspotlightShaderId);
+    glLinkProgram(spotlightProgramObject);
+    if (check_link_error(spotlightProgramObject) < 0)
+        exit(1);
+
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(gbufferProgramObject, "MVP");
     GLuint mvLocation = glGetUniformLocation(gbufferProgramObject, "MV");
@@ -234,8 +262,36 @@ int main( int argc, char **argv )
     GLuint lightLocation = glGetUniformLocation(gbufferProgramObject, "Light");
     GLuint specularPowerLocation = glGetUniformLocation(gbufferProgramObject, "SpecularPower");
     GLuint instanceCountLocation = glGetUniformLocation(gbufferProgramObject, "InstanceCount");
-    glProgramUniform1i(gbufferProgramObject, diffuseLocation, 0);
-    glProgramUniform1i(gbufferProgramObject, specLocation, 1);
+    GLuint blitTextureLocation = glGetUniformLocation(blitProgramObject, "Texture");
+    glProgramUniform1i(blitProgramObject, blitTextureLocation, 0);
+
+    GLuint pointlightColorLocation = glGetUniformLocation(pointlightProgramObject, "ColorBuffer");
+    GLuint pointlightNormalLocation = glGetUniformLocation(pointlightProgramObject, "NormalBuffer");
+    GLuint pointlightDepthLocation = glGetUniformLocation(pointlightProgramObject, "DepthBuffer");
+    GLuint pointlightLightLocation = glGetUniformBlockIndex(pointlightProgramObject, "light");
+    GLuint pointInverseProjectionLocation = glGetUniformLocation(pointlightProgramObject, "InverseProjection");
+    glProgramUniform1i(pointlightProgramObject, pointlightColorLocation, 0);
+    glProgramUniform1i(pointlightProgramObject, pointlightNormalLocation, 1);
+    glProgramUniform1i(pointlightProgramObject, pointlightDepthLocation, 2);
+
+    GLuint directionallightColorLocation = glGetUniformLocation(directionallightProgramObject, "ColorBuffer");
+    GLuint directionallightNormalLocation = glGetUniformLocation(directionallightProgramObject, "NormalBuffer");
+    GLuint directionallightDepthLocation = glGetUniformLocation(directionallightProgramObject, "DepthBuffer");
+    GLuint directionallightLightLocation = glGetUniformBlockIndex(directionallightProgramObject, "light");
+    GLuint directionalInverseProjectionLocation = glGetUniformLocation(directionallightProgramObject, "InverseProjection");
+    glProgramUniform1i(directionallightProgramObject, directionallightColorLocation, 0);
+    glProgramUniform1i(directionallightProgramObject, directionallightNormalLocation, 1);
+    glProgramUniform1i(directionallightProgramObject, directionallightDepthLocation, 2);
+
+    GLuint spotlightColorLocation = glGetUniformLocation(spotlightProgramObject, "ColorBuffer");
+    GLuint spotlightNormalLocation = glGetUniformLocation(spotlightProgramObject, "NormalBuffer");
+    GLuint spotlightDepthLocation = glGetUniformLocation(spotlightProgramObject, "DepthBuffer");
+    GLuint spotlightLightLocation = glGetUniformBlockIndex(spotlightProgramObject, "light");
+    GLuint spotInverseProjectionLocation = glGetUniformLocation(spotlightProgramObject, "InverseProjection");
+    glProgramUniform1i(spotlightProgramObject, spotlightColorLocation, 0);
+    glProgramUniform1i(spotlightProgramObject, spotlightNormalLocation, 1);
+    glProgramUniform1i(spotlightProgramObject, spotlightDepthLocation, 2);
+
     if (!checkError("Uniforms"))
         exit(1);
 
@@ -320,7 +376,19 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    checkError("Buffer Init");
+    // Update and bind uniform buffer object
+    GLuint ubo[1];
+    glGenBuffers(1, ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+    GLint uboSize = 0;
+    glGetActiveUniformBlockiv(pointlightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
+    glGetActiveUniformBlockiv(directionallightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
+
+    // Ignore ubo size, allocate it sufficiently big for all light data structures
+    uboSize = 512;
+
+    glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     // Init frame buffers
     GLuint gbufferFbo;
@@ -330,8 +398,8 @@ int main( int argc, char **argv )
 
     // Create color texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -339,8 +407,8 @@ int main( int argc, char **argv )
 
     // Create normal texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -357,12 +425,13 @@ int main( int argc, char **argv )
     // Create Framebuffer Object
     glGenFramebuffers(1, &gbufferFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
+    gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
+    glDrawBuffers(2, gbufferDrawBuffers);
 
     // Attach textures to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
-    gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
-    gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -371,9 +440,6 @@ int main( int argc, char **argv )
         exit( EXIT_FAILURE );
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // Viewport 
-    glViewport( 0, 0, width, height  );
 
     do
     {
@@ -444,12 +510,23 @@ int main( int argc, char **argv )
         // Clear the front buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Viewport 
+        glViewport( 0, 0, width, height  );
+
+        // Bind gbuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
+
+        // Clear the gbuffer
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         // Get camera matrices
         glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
         glm::mat4 mv = worldToView * objectToWorld;
         glm::mat4 mvp = projection * mv;
+        //glm::mat4 inverseProjection = glm::transpose(glm::inverse(projection));
+        glm::mat4 inverseProjection = glm::inverse(projection);
 
         // Select textures
         glActiveTexture(GL_TEXTURE0);
@@ -466,6 +543,11 @@ int main( int argc, char **argv )
         glProgramUniform1i(gbufferProgramObject, instanceCountLocation, (int) instanceCount);
         glProgramUniform1f(gbufferProgramObject, specularPowerLocation, 30.f);
         glProgramUniform1f(gbufferProgramObject, timeLocation, t);
+        glProgramUniform1i(gbufferProgramObject, diffuseLocation, 0);
+        glProgramUniform1i(gbufferProgramObject, specLocation, 1);
+        glProgramUniformMatrix4fv(pointlightProgramObject, pointInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
+        glProgramUniformMatrix4fv(directionallightProgramObject, directionalInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
+        glProgramUniformMatrix4fv(spotlightProgramObject, spotInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
 
         // Render vaos
         glBindVertexArray(vao[0]);
@@ -474,6 +556,128 @@ int main( int argc, char **argv )
         glProgramUniform1f(programObject, timeLocation, 0.f);
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+
+        // Select textures
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+
+
+        // Bind the same VAO for all lights
+        glBindVertexArray(vao[2]);
+
+
+        // Render point lights
+        glUseProgram(pointlightProgramObject);
+        struct PointLight
+        {
+            glm::vec3 position;
+            int padding;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < pointLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+            PointLight p = { 
+                glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
+                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
+                0.5f + fabsf(cosf(t+i))
+            };
+            PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *pointLightBuffer = p;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, pointlightLightLocation, ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
+        // Render directional lights
+        glUseProgram(directionallightProgramObject);
+        struct DirectionalLight
+        {
+            glm::vec3 direction;
+            int padding;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < directionalLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+             DirectionalLight d = { 
+                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 0,
+                glm::vec3(1.0, 1.0, 1.0),
+                0.03 + fabsf(cosf(i)) * 0.1f
+            };
+            DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *directionalLightBuffer = d;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, directionallightLightLocation, ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
+        // Render spot lights
+        glUseProgram(spotlightProgramObject);
+        struct SpotLight
+        {
+            glm::vec3 position;
+            float angle;
+            glm::vec3 direction;
+            float penumbraAngle;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < spotLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+            SpotLight s = { 
+                glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
+                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
+                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
+            };
+            SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *spotLightBuffer = s;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, spotlightLightLocation, ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }        
+
+        glDisable(GL_BLEND);
+
+        // Bind blit shader
+        glUseProgram(blitProgramObject);
+        // Upload uniforms
+        // use only unit 0
+        glActiveTexture(GL_TEXTURE0);
+        // Bind VAO
+        glBindVertexArray(vao[2]);
+
+        // Viewport 
+        glViewport( 0, 0, width/3, height/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( width/3, 0, width/3, height/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( width/3 * 2, 0, width/3, height/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
 #if 1
         // Draw UI

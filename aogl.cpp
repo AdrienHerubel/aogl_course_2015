@@ -216,10 +216,9 @@ int main( int argc, char **argv )
         exit(1);
 
     // Try to load and compile pointlight shaders
-    GLuint vertlightShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "light.vert");
     GLuint fragpointlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "pointlight.frag");
     GLuint pointlightProgramObject = glCreateProgram();
-    glAttachShader(pointlightProgramObject, vertlightShaderId);
+    glAttachShader(pointlightProgramObject, vertBlitShaderId);
     glAttachShader(pointlightProgramObject, fragpointlightShaderId);
     glLinkProgram(pointlightProgramObject);
     if (check_link_error(pointlightProgramObject) < 0)
@@ -228,7 +227,7 @@ int main( int argc, char **argv )
     // Try to load and compile directionallight shaders
     GLuint fragdirectionallightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionallight.frag");
     GLuint directionallightProgramObject = glCreateProgram();
-    glAttachShader(directionallightProgramObject, vertlightShaderId);
+    glAttachShader(directionallightProgramObject, vertBlitShaderId);
     glAttachShader(directionallightProgramObject, fragdirectionallightShaderId);
     glLinkProgram(directionallightProgramObject);
     if (check_link_error(directionallightProgramObject) < 0)
@@ -237,7 +236,7 @@ int main( int argc, char **argv )
     // Try to load and compile spotlight shaders
     GLuint fragspotlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "spotlight.frag");
     GLuint spotlightProgramObject = glCreateProgram();
-    glAttachShader(spotlightProgramObject, vertlightShaderId);
+    glAttachShader(spotlightProgramObject, vertBlitShaderId);
     glAttachShader(spotlightProgramObject, fragspotlightShaderId);
     glLinkProgram(spotlightProgramObject);
     if (check_link_error(spotlightProgramObject) < 0)

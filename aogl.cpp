@@ -87,8 +87,15 @@ const float GUIStates::MOUSE_ZOOM_SPEED = 0.05f;
 const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
 
-
-
+struct SpotLight
+{
+    glm::vec3 position;
+    float angle;
+    glm::vec3 direction;
+    float penumbraAngle;
+    glm::vec3 color;
+    float intensity;
+};
 
 int main( int argc, char **argv )
 {
@@ -366,17 +373,16 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Update and bind uniform buffer object
+    const int SPOT_LIGHT_COUNT = 16;
     GLuint ubo[1];
     glGenBuffers(1, ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+    GLint uboOffset = 0;
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uboOffset);
     GLint uboSize = 0;
-    glGetActiveUniformBlockiv(pointlightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
-    glGetActiveUniformBlockiv(directionallightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
-
-    // Ignore ubo size, allocate it sufficiently big for all light data structures
-    uboSize = 512;
-
-    glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
+    glGetActiveUniformBlockiv(spotlightProgramObject, spotlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
+    uboSize = ((uboSize / uboOffset) + 1) * uboOffset;
+    glBufferData(GL_UNIFORM_BUFFER, uboSize * SPOT_LIGHT_COUNT, 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     // Init frame buffers
@@ -425,9 +431,49 @@ int main( int argc, char **argv )
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        fprintf(stderr, "Error on building framebuffer\n");
+        fprintf(stderr, "Error on building gbuffer framebuffer\n");
         exit( EXIT_FAILURE );
     }
+
+    // Create shadow FBO
+    GLuint shadowFbo;
+    glGenFramebuffers(1, &shadowFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
+    
+    // Create shadow textures
+    const int SPOT_LIGHT_SHADOW_RES = 1024;
+    GLuint shadowTextures[SPOT_LIGHT_COUNT];
+    glGenTextures(SPOT_LIGHT_COUNT, shadowTextures);
+    for (int i = 0; i < SPOT_LIGHT_COUNT; ++i) 
+    {
+        glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    // Create a render buffer since we don't need to read shadow color 
+    // in a texture
+    GLuint shadowRenderBuffer;
+    glGenRenderbuffers(1, &shadowRenderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES);
+
+    // Attach the first texture to the depth attachment
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
+
+    // Attach the renderbuffer
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Error on building shadow framebuffer\n");
+        exit( EXIT_FAILURE );
+    }
+
+    // Fall back to default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     do
@@ -564,80 +610,34 @@ int main( int argc, char **argv )
         // Bind the same VAO for all lights
         glBindVertexArray(vao[2]);
 
-
-        // Render point lights
-        glUseProgram(pointlightProgramObject);
-        struct PointLight
-        {
-            glm::vec3 position;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < pointLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-            PointLight p = { 
-                glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
-                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
-                0.5f + fabsf(cosf(t+i))
-            };
-            PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *pointLightBuffer = p;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, pointlightLightLocation, ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        }
-
-        // Render directional lights
-        glUseProgram(directionallightProgramObject);
-        struct DirectionalLight
-        {
-            glm::vec3 direction;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < directionalLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-             DirectionalLight d = { 
-                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 0,
-                glm::vec3(1.0, 1.0, 1.0),
-                0.03 + fabsf(cosf(i)) * 0.1f
-            };
-            DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *directionalLightBuffer = d;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, directionallightLightLocation, ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        }
-
         // Render spot lights
         glUseProgram(spotlightProgramObject);
-        struct SpotLight
+
+        glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+        char * spotLightBuffer = (char *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize * SPOT_LIGHT_COUNT, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        for (int i = 0; i < SPOT_LIGHT_COUNT; ++i)
         {
-            glm::vec3 position;
-            float angle;
-            glm::vec3 direction;
-            float penumbraAngle;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < spotLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
             SpotLight s = { 
+#if 0                
                 glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
                 glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
                 glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
+#else                
+                glm::vec3( worldToView * glm::vec4(i, 5.f, i, 1.f)), 45.f,
+                glm::vec3( worldToView * glm::vec4(0.f, -1.f, 0.f, 0.f)), 60.f,
+                glm::vec3(1.f, 1.f, 1.f), 2.0
+#endif                
             };
-            SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *spotLightBuffer = s;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, spotlightLightLocation, ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+            *((SpotLight *) (spotLightBuffer + i * uboSize)) = s;
         }        
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        for (int i = 0; i < SPOT_LIGHT_COUNT; ++i)
+        {
+            glBindBufferRange(GL_UNIFORM_BUFFER, spotlightLightLocation, ubo[0], uboSize * i, uboSize);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }    
 
         glDisable(GL_BLEND);
 

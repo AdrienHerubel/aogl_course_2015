@@ -629,10 +629,19 @@ int main( int argc, char **argv )
         for (int i = 0; i < spotLightCount; ++i)
         {
             // Setup light data
+#if 0                
             glm::vec3 lp(i*2, 5.f, i*2);
             glm::vec3 ld(0.f, -1.f, 0.f);
             float angle = 45.f;
             float penumbraAngle = 50.f;
+#else
+            float iF = (float) i +1.f;
+            glm::vec3 lp((spotLightCount*2.f*sinf(t)) * cosf(t/iF), 5.f + sinf(t / iF), fabsf(spotLightCount*2.f*cosf(t)) * sinf(t/iF));
+            glm::vec3 ld(sinf(t*10.0+i), -1.0, 0.0);
+            float angle = 45.f + 20.f * cos(t + i);
+            float penumbraAngle = 60.f + 20.f * cos(t + i);
+            glm::vec3 color(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)), 0.5f + 0.5f-fabsf(cosf(t+i))); 
+#endif            
             // Light space matrices
             glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
             glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 0.f, -1.f));
@@ -641,13 +650,11 @@ int main( int argc, char **argv )
             glm::mat4 objectToLightScreen = projection * objectToLight;
             SpotLight s = { 
 #if 0                
-                glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
-                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
                 glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
 #else                
                 glm::vec3( worldToView * glm::vec4(lp, 1.f)), angle,
                 glm::vec3( worldToView * glm::vec4(ld, 0.f)), penumbraAngle,
-                glm::vec3(1.f, 1.f, 1.f), 20.f, 
+                color, 20.f, 
                 projection * worldToLight * glm::inverse(worldToView)
 #endif                
             };
@@ -675,6 +682,7 @@ int main( int argc, char **argv )
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        glViewport(0, 0, width, height);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);

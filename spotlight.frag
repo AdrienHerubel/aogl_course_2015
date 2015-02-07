@@ -91,6 +91,7 @@ void main(void)
 
 	vec4 wlP = SpotLight.WorldToLightScreen * vec4(p, 1.0);
 	vec3 lP = vec3(wlP / wlP.w) * 0.5 + 0.5;
+	float d = distance(SpotLight.Position, p);
 
 #if 0
 #if 0
@@ -113,12 +114,12 @@ void main(void)
 		if (any(greaterThan(spotColor, vec3(0.001))))
 		{
 			shadowDepth = 0.0;
-			const int samples = 32;
-			const float samplesf = 32.0;
+			const int samples = 4;
+			const float samplesf = 4.0;
 			for (int i=0;i<samples;i++)
 			{
 				int index = int(samplesf*random(vec4(gl_FragCoord.xyy, i)))%samples;
-				shadowDepth += textureProj(Shadow, vec4(lP.xy + poissonDisk[index]/1000.0, lP.z -0.005, 1.0), 0.0) / samplesf;
+				shadowDepth += textureProj(Shadow, vec4(lP.xy + poissonDisk[index]/(1000.0 * 1.f/d), lP.z -0.005, 1.0), 0.0) / samplesf;
 			}
 			Color = shadowDepth * vec4(vec3(1.0, 0.0, 1.0), 1.0);
 		}

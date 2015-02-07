@@ -79,6 +79,9 @@ struct GUIStates
     int camera;
     double time;
     bool playing;
+    int scroll;
+    bool display;
+    bool blit;
     static const float MOUSE_PAN_SPEED;
     static const float MOUSE_ZOOM_SPEED;
     static const float MOUSE_TURN_SPEED;
@@ -119,6 +122,7 @@ int main( int argc, char **argv )
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+
 
 #if defined(__APPLE__)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -562,6 +566,18 @@ int main( int argc, char **argv )
             guiStates.lockPositionX = mousex;
             guiStates.lockPositionY = mousey;
         }
+        if (glfwGetKey(window, GLFW_KEY_G))
+            guiStates.display = ! guiStates.display;
+        if (glfwGetKey(window, GLFW_KEY_B))
+            guiStates.blit = ! guiStates.blit;
+
+// static void handleKey(GLFWwindow* window, int key, int scancode, int action, int mods)
+// {
+//     if (key == GLFW_KEY_G && action == GLFW_PRESS)
+//         g_guiStates->display = ! g_guiStates->display;
+//     if (key == GLFW_KEY_B && action == GLFW_PRESS)
+//         g_guiStates->blit = ! g_guiStates->blit;
+// }
 
         // Default states
         glEnable(GL_DEPTH_TEST);
@@ -629,11 +645,12 @@ int main( int argc, char **argv )
         for (int i = 0; i < spotLightCount; ++i)
         {
             // Setup light data
-#if 0                
+#if 1                
             glm::vec3 lp(i*2, 5.f, i*2);
-            glm::vec3 ld(0.f, -1.f, 0.f);
+            glm::vec3 ld(-1.f, -1.f, 0.f);
             float angle = 45.f;
             float penumbraAngle = 50.f;
+            glm::vec3 color(1.f, 1.f, 1.f); 
 #else
             float iF = (float) i +1.f;
             glm::vec3 lp((spotLightCount*2.f*sinf(t)) * cosf(t/iF), 5.f + sinf(t / iF), fabsf(spotLightCount*2.f*cosf(t)) * sinf(t/iF));
@@ -649,20 +666,16 @@ int main( int argc, char **argv )
             glm::mat4 objectToLight = worldToLight * objectToWorld;
             glm::mat4 objectToLightScreen = projection * objectToLight;
             SpotLight s = { 
-#if 0                
-                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
-#else                
                 glm::vec3( worldToView * glm::vec4(lp, 1.f)), angle,
                 glm::vec3( worldToView * glm::vec4(ld, 0.f)), penumbraAngle,
-                color, 20.f, 
+                color, 30.f, 
                 projection * worldToLight * glm::inverse(worldToView)
-#endif                
             };
             *((SpotLight *) (spotLightBuffer + i * uboSize)) = s;
             //std::cout << glm::to_string(worldToLight) << std::endl;
             // Attach shadow texture for current light
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[i], 0);
-            // CLear only the depth buffer
+            // Clear only the depth buffer
             glClear(GL_DEPTH_BUFFER_BIT);
 
 
@@ -709,73 +722,77 @@ int main( int argc, char **argv )
 
         glDisable(GL_BLEND);
 
-        // Bind blit shader
-        glUseProgram(blitProgramObject);
-        // Upload uniforms
-        // use only unit 0
-        glActiveTexture(GL_TEXTURE0);
-        // Bind VAO
-        glBindVertexArray(vao[2]);
+        if (guiStates.blit)
+        {
+            // Bind blit shader
+            glUseProgram(blitProgramObject);
+            // Upload uniforms
+            // use only unit 0
+            glActiveTexture(GL_TEXTURE0);
+            // Bind VAO
+            glBindVertexArray(vao[2]);
 
-        // Viewport 
-        glViewport( 0, 0, width/4, height/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( width/4, 0, width/4, height/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( width/4 * 2, 0, width/4, height/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( width/4 * 3, 0, SPOT_LIGHT_SHADOW_RES / 5, SPOT_LIGHT_SHADOW_RES / 5  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, shadowTextures[((int) t) % (int) spotLightCount]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-#if 1
-        // Draw UI
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glViewport(0, 0, width, height);
+            // Viewport 
+            glViewport( 0, 0, width/4, height/4  );
+            // Bind texture
+            glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+            // Draw quad
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+            // Viewport 
+            glViewport( width/4, 0, width/4, height/4  );
+            // Bind texture
+            glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+            // Draw quad
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+            // Viewport 
+            glViewport( width/4 * 2, 0, width/4, height/4  );
+            // Bind texture
+            glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+            // Draw quad
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+            // Viewport 
+            glViewport( width/4 * 3, 0, SPOT_LIGHT_SHADOW_RES / 5, SPOT_LIGHT_SHADOW_RES / 5  );
+            // Bind texture
+            glBindTexture(GL_TEXTURE_2D, shadowTextures[((int) t) % (int) spotLightCount]);
+            // Draw quad
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
 
-        unsigned char mbut = 0;
-        int mscroll = 0;
-        double mousex; double mousey;
-        glfwGetCursorPos(window, &mousex, &mousey);
-        mousex*=DPI;
-        mousey*=DPI;
-        mousey = height - mousey;
+        if (guiStates.display)
+        {
+            // Draw UI
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glViewport(0, 0, width, height);
 
-        if( leftButton == GLFW_PRESS )
-            mbut |= IMGUI_MBUT_LEFT;
+            unsigned char mbut = 0;
+            int mscroll = 0;
+            double mousex; double mousey;
+            glfwGetCursorPos(window, &mousex, &mousey);
+            mousex*=DPI;
+            mousey*=DPI;
+            mousey = height - mousey;
 
-        imguiBeginFrame(mousex, mousey, mbut, mscroll);
-        int logScroll = 0;
-        char lineBuffer[512];
-        imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
-        sprintf(lineBuffer, "FPS %f", fps);
-        imguiLabel(lineBuffer);
-        imguiSlider("Speed", &speed, 0.01, 1.0, 0.01);
-        imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
-        imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
-        imguiSlider("Spot Lights", &spotLightCount, 1.0, 16.0, 1);
+            if( leftButton == GLFW_PRESS )
+                mbut |= IMGUI_MBUT_LEFT;
 
-        imguiEndScrollArea();
-        imguiEndFrame();
-        imguiRenderGLDraw(width, height);
+            imguiBeginFrame(mousex, mousey, mbut, mscroll);
+            char lineBuffer[512];
+            imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &guiStates.scroll);
+            sprintf(lineBuffer, "FPS %f", fps);
+            imguiLabel(lineBuffer);
+            imguiSlider("Speed", &speed, 0.0, 1.0, 0.01);
+            imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
+            imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
+            imguiSlider("Spot Lights", &spotLightCount, 1.0, 16.0, 1);
 
-        glDisable(GL_BLEND);
-#endif
+            imguiEndScrollArea();
+            imguiEndFrame();
+            imguiRenderGLDraw(width, height);
+
+            glDisable(GL_BLEND);
+        }
         // Check for errors
         checkError("End loop");
 
@@ -992,4 +1009,7 @@ void init_gui_states(GUIStates & guiStates)
     guiStates.camera = 0;
     guiStates.time = 0.0;
     guiStates.playing = false;
+    guiStates.display = false;
+    guiStates.blit = false;
+    guiStates.scroll = 0;
 }

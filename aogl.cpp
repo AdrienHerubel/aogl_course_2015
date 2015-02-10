@@ -162,10 +162,11 @@ int main( int argc, char **argv )
     GUIStates guiStates;
     init_gui_states(guiStates);
     float instanceCount = 2500;
-    float pointLightCount = 10;
+    float pointLightCount = 0;
     float directionalLightCount = 1;
-    float spotLightCount = 2;
-    float speed = 1.0;
+    float spotLightCount = 0;
+    float speed = 1.f;
+    float gamma = 1.f;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -180,8 +181,9 @@ int main( int argc, char **argv )
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
     fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
 
     unsigned char * spec = stbi_load("textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
@@ -190,8 +192,9 @@ int main( int argc, char **argv )
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
     fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
     checkError("Texture Initialization");
 
@@ -204,6 +207,8 @@ int main( int argc, char **argv )
     glLinkProgram(blitProgramObject);
     if (check_link_error(blitProgramObject) < 0)
         exit(1);
+    GLuint blitTextureLocation = glGetUniformLocation(blitProgramObject, "Texture");
+    glProgramUniform1i(blitProgramObject, blitTextureLocation, 0);
 
     // Try to load and compile gbuffer shaders
     GLuint vertgbufferShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "gbuffer.vert");
@@ -214,6 +219,16 @@ int main( int argc, char **argv )
     glLinkProgram(gbufferProgramObject);
     if (check_link_error(gbufferProgramObject) < 0)
         exit(1);
+    GLuint mvpLocation = glGetUniformLocation(gbufferProgramObject, "MVP");
+    GLuint mvLocation = glGetUniformLocation(gbufferProgramObject, "MV");
+    GLuint timeLocation = glGetUniformLocation(gbufferProgramObject, "Time");
+    GLuint diffuseLocation = glGetUniformLocation(gbufferProgramObject, "Diffuse");
+    GLuint specLocation = glGetUniformLocation(gbufferProgramObject, "Specular");
+    GLuint lightLocation = glGetUniformLocation(gbufferProgramObject, "Light");
+    GLuint specularPowerLocation = glGetUniformLocation(gbufferProgramObject, "SpecularPower");
+    GLuint instanceCountLocation = glGetUniformLocation(gbufferProgramObject, "InstanceCount");
+    glProgramUniform1i(gbufferProgramObject, diffuseLocation, 0);
+    glProgramUniform1i(gbufferProgramObject, specLocation, 1);
 
     // Try to load and compile pointlight shaders
     GLuint fragpointlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "pointlight.frag");
@@ -223,37 +238,6 @@ int main( int argc, char **argv )
     glLinkProgram(pointlightProgramObject);
     if (check_link_error(pointlightProgramObject) < 0)
         exit(1);
-
-    // Try to load and compile directionallight shaders
-    GLuint fragdirectionallightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionallight.frag");
-    GLuint directionallightProgramObject = glCreateProgram();
-    glAttachShader(directionallightProgramObject, vertBlitShaderId);
-    glAttachShader(directionallightProgramObject, fragdirectionallightShaderId);
-    glLinkProgram(directionallightProgramObject);
-    if (check_link_error(directionallightProgramObject) < 0)
-        exit(1);
-
-    // Try to load and compile spotlight shaders
-    GLuint fragspotlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "spotlight.frag");
-    GLuint spotlightProgramObject = glCreateProgram();
-    glAttachShader(spotlightProgramObject, vertBlitShaderId);
-    glAttachShader(spotlightProgramObject, fragspotlightShaderId);
-    glLinkProgram(spotlightProgramObject);
-    if (check_link_error(spotlightProgramObject) < 0)
-        exit(1);
-
-    // Upload uniforms
-    GLuint mvpLocation = glGetUniformLocation(gbufferProgramObject, "MVP");
-    GLuint mvLocation = glGetUniformLocation(gbufferProgramObject, "MV");
-    GLuint timeLocation = glGetUniformLocation(gbufferProgramObject, "Time");
-    GLuint diffuseLocation = glGetUniformLocation(gbufferProgramObject, "Diffuse");
-    GLuint specLocation = glGetUniformLocation(gbufferProgramObject, "Specular");
-    GLuint lightLocation = glGetUniformLocation(gbufferProgramObject, "Light");
-    GLuint specularPowerLocation = glGetUniformLocation(gbufferProgramObject, "SpecularPower");
-    GLuint instanceCountLocation = glGetUniformLocation(gbufferProgramObject, "InstanceCount");
-    GLuint blitTextureLocation = glGetUniformLocation(blitProgramObject, "Texture");
-    glProgramUniform1i(blitProgramObject, blitTextureLocation, 0);
- 
     GLuint pointlightColorLocation = glGetUniformLocation(pointlightProgramObject, "ColorBuffer");
     GLuint pointlightNormalLocation = glGetUniformLocation(pointlightProgramObject, "NormalBuffer");
     GLuint pointlightDepthLocation = glGetUniformLocation(pointlightProgramObject, "DepthBuffer");
@@ -263,6 +247,14 @@ int main( int argc, char **argv )
     glProgramUniform1i(pointlightProgramObject, pointlightNormalLocation, 1);
     glProgramUniform1i(pointlightProgramObject, pointlightDepthLocation, 2);
 
+    // Try to load and compile directionallight shaders
+    GLuint fragdirectionallightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionallight.frag");
+    GLuint directionallightProgramObject = glCreateProgram();
+    glAttachShader(directionallightProgramObject, vertBlitShaderId);
+    glAttachShader(directionallightProgramObject, fragdirectionallightShaderId);
+    glLinkProgram(directionallightProgramObject);
+    if (check_link_error(directionallightProgramObject) < 0)
+        exit(1);
     GLuint directionallightColorLocation = glGetUniformLocation(directionallightProgramObject, "ColorBuffer");
     GLuint directionallightNormalLocation = glGetUniformLocation(directionallightProgramObject, "NormalBuffer");
     GLuint directionallightDepthLocation = glGetUniformLocation(directionallightProgramObject, "DepthBuffer");
@@ -272,6 +264,14 @@ int main( int argc, char **argv )
     glProgramUniform1i(directionallightProgramObject, directionallightNormalLocation, 1);
     glProgramUniform1i(directionallightProgramObject, directionallightDepthLocation, 2);
 
+    // Try to load and compile spotlight shaders
+    GLuint fragspotlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "spotlight.frag");
+    GLuint spotlightProgramObject = glCreateProgram();
+    glAttachShader(spotlightProgramObject, vertBlitShaderId);
+    glAttachShader(spotlightProgramObject, fragspotlightShaderId);
+    glLinkProgram(spotlightProgramObject);
+    if (check_link_error(spotlightProgramObject) < 0)
+        exit(1);
     GLuint spotlightColorLocation = glGetUniformLocation(spotlightProgramObject, "ColorBuffer");
     GLuint spotlightNormalLocation = glGetUniformLocation(spotlightProgramObject, "NormalBuffer");
     GLuint spotlightDepthLocation = glGetUniformLocation(spotlightProgramObject, "DepthBuffer");
@@ -281,7 +281,20 @@ int main( int argc, char **argv )
     glProgramUniform1i(spotlightProgramObject, spotlightNormalLocation, 1);
     glProgramUniform1i(spotlightProgramObject, spotlightDepthLocation, 2);
 
-   if (!checkError("Uniforms"))
+    // Try to load and compile spotlight shaders
+    GLuint fragGammalightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "gamma.frag");
+    GLuint gammaProgramObject = glCreateProgram();
+    glAttachShader(gammaProgramObject, vertBlitShaderId);
+    glAttachShader(gammaProgramObject, fragGammalightShaderId);
+    glLinkProgram(gammaProgramObject);
+    if (check_link_error(gammaProgramObject) < 0)
+        exit(1);
+    GLuint gammaTextureLocation = glGetUniformLocation(gammaProgramObject, "Texture");
+    glProgramUniform1i(gammaProgramObject, gammaTextureLocation, 0);
+    GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
+
+
+   if (!checkError("Shaders"))
         exit(1);
 
     // Load geometry
@@ -396,8 +409,8 @@ int main( int argc, char **argv )
 
     // Create normal texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -423,12 +436,46 @@ int main( int argc, char **argv )
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
 
+    // Create Fx Framebuffer Object
+    GLuint fxFbo;
+    GLuint fxDrawBuffers[1];
+    glGenFramebuffers(1, &fxFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+    fxDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, fxDrawBuffers);
+
+    // Create Fx textures
+    GLuint fxTextures[3];
+    glGenTextures(3, fxTextures);
+    glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, fxTextures[2]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Attach first fx texture to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
         fprintf(stderr, "Error on building framebuffer\n");
         exit( EXIT_FAILURE );
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    checkError("Framebuffers");
 
     do
     {
@@ -546,7 +593,8 @@ int main( int argc, char **argv )
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -560,10 +608,8 @@ int main( int argc, char **argv )
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
 
-
         // Bind the same VAO for all lights
         glBindVertexArray(vao[2]);
-
 
         // Render point lights
         glUseProgram(pointlightProgramObject);
@@ -602,9 +648,9 @@ int main( int argc, char **argv )
         {
             glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
              DirectionalLight d = { 
-                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 0,
+                glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
                 glm::vec3(1.0, 1.0, 1.0),
-                0.03 + fabsf(cosf(i)) * 0.1f
+                0.3f
             };
             DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
             *directionalLightBuffer = d;
@@ -640,6 +686,15 @@ int main( int argc, char **argv )
         }        
 
         glDisable(GL_BLEND);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Gamma
+        glUseProgram(gammaProgramObject);
+        glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Bind blit shader
         glUseProgram(blitProgramObject);
@@ -696,6 +751,7 @@ int main( int argc, char **argv )
         imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
         imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
         imguiSlider("Spot Lights", &spotLightCount, 0.0, 100.0, 1);
+        imguiSlider("Gamma", &gamma, 0.0, 3.0, 0.01);
 
         imguiEndScrollArea();
         imguiEndFrame();

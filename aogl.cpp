@@ -281,7 +281,7 @@ int main( int argc, char **argv )
     glProgramUniform1i(spotlightProgramObject, spotlightNormalLocation, 1);
     glProgramUniform1i(spotlightProgramObject, spotlightDepthLocation, 2);
 
-    // Try to load and compile spotlight shaders
+    // Try to load and compile gamma shaders
     GLuint fragGammalightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "gamma.frag");
     GLuint gammaProgramObject = glCreateProgram();
     glAttachShader(gammaProgramObject, vertBlitShaderId);
@@ -293,6 +293,18 @@ int main( int argc, char **argv )
     glProgramUniform1i(gammaProgramObject, gammaTextureLocation, 0);
     GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
 
+    // Try to load and compile freichen shaders
+    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
+    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
+    GLuint freichenProgramObject = glCreateProgram();
+    glAttachShader(freichenProgramObject, vertBlitShaderId);
+    glAttachShader(freichenProgramObject, fragfreichenlightShaderId);
+    glLinkProgram(freichenProgramObject);
+    if (check_link_error(freichenProgramObject) < 0)
+        exit(1);
+    GLuint freichenTextureLocation = glGetUniformLocation(freichenProgramObject, "Texture");
+    glProgramUniform1i(freichenProgramObject, freichenTextureLocation, 0);
+    GLuint freichenfreichenLocation = glGetUniformLocation(freichenProgramObject, "Gamma");
 
    if (!checkError("Shaders"))
         exit(1);
@@ -594,7 +606,10 @@ int main( int argc, char **argv )
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Attach first fx texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -687,13 +702,27 @@ int main( int argc, char **argv )
 
         glDisable(GL_BLEND);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Attach second fx texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // Gamma
         glUseProgram(gammaProgramObject);
         glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Write to back buffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // freichen
+        glUseProgram(freichenProgramObject);
+        glProgramUniform1f(freichenProgramObject, freichenfreichenLocation, gamma);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Bind blit shader

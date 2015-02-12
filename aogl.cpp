@@ -168,6 +168,7 @@ int main( int argc, char **argv )
     float speed = 1.f;
     float gamma = 1.f;
     float factor = 1.f;
+    float sampleCount = 3.0;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -295,8 +296,8 @@ int main( int argc, char **argv )
     GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
 
     // Try to load and compile freichen shaders
-    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
-    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
+    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
+    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
     GLuint freichenProgramObject = glCreateProgram();
     glAttachShader(freichenProgramObject, vertBlitShaderId);
     glAttachShader(freichenProgramObject, fragfreichenlightShaderId);
@@ -306,6 +307,19 @@ int main( int argc, char **argv )
     GLuint freichenTextureLocation = glGetUniformLocation(freichenProgramObject, "Texture");
     glProgramUniform1i(freichenProgramObject, freichenTextureLocation, 0);
     GLuint freichenFactorLocation = glGetUniformLocation(freichenProgramObject, "Factor");
+
+    // Try to load and compile blur shaders
+    GLuint fragblurlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "blur.frag");
+    GLuint blurProgramObject = glCreateProgram();
+    glAttachShader(blurProgramObject, vertBlitShaderId);
+    glAttachShader(blurProgramObject, fragblurlightShaderId);
+    glLinkProgram(blurProgramObject);
+    if (check_link_error(blurProgramObject) < 0)
+        exit(1);
+    GLuint blurTextureLocation = glGetUniformLocation(blurProgramObject, "Texture");
+    glProgramUniform1i(blurProgramObject, blurTextureLocation, 0);
+    GLuint blurSampleCountLocation = glGetUniformLocation(blurProgramObject, "SampleCount");
+    GLuint blurDirectionLocation = glGetUniformLocation(blurProgramObject, "Direction");
 
 
    if (!checkError("Shaders"))
@@ -702,17 +716,41 @@ int main( int argc, char **argv )
             glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         }        
 
+        // End additive blending
         glDisable(GL_BLEND);
 
-
-        // Attach second fx texture to framebuffer
+        // Attach fx texture #1 to framebuffer
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
         // Only the color buffer is used
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Gamma
-        glUseProgram(gammaProgramObject);
-        glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
+        // freichen
+        glUseProgram(freichenProgramObject);
+        glProgramUniform1f(freichenProgramObject, freichenFactorLocation, factor);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Attach fx texture #0 to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // vertical blur
+        glUseProgram(blurProgramObject);
+        glProgramUniform1i(blurProgramObject, blurSampleCountLocation, (int) sampleCount);
+        glProgramUniform2i(blurProgramObject, blurDirectionLocation, 0, 1);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Attach fx texture #1 to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // horizontal blur
+        glProgramUniform2i(blurProgramObject, blurDirectionLocation, 1, 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -720,9 +758,9 @@ int main( int argc, char **argv )
         // Write to back buffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // freichen
-        glUseProgram(freichenProgramObject);
-        glProgramUniform1f(freichenProgramObject, freichenFactorLocation, factor);
+        // Gamma
+        glUseProgram(gammaProgramObject);
+        glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -784,6 +822,7 @@ int main( int argc, char **argv )
         imguiSlider("Spot Lights", &spotLightCount, 0.0, 100.0, 1);
         imguiSlider("Gamma", &gamma, 0.0, 3.0, 0.01);
         imguiSlider("Factor", &factor, 0.0, 5.0, 0.1);
+        imguiSlider("Blur Samples", &sampleCount, 3.0, 65.0, 2.0);
 
         imguiEndScrollArea();
         imguiEndFrame();

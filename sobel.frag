@@ -6,6 +6,7 @@ in block
 } In; 
 
 uniform sampler2D Texture;
+uniform float Factor = 2.0;
 
 uniform mat3 G[2] = mat3[](
 	mat3( 1.0, 2.0, 1.0, 0.0, 0.0, 0.0, -1.0, -2.0, -1.0 ),
@@ -33,6 +34,5 @@ void main(void)
 		cnv[i] = dp3 * dp3; 
 	}
 
-	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgba - 2.0 * sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
-	Color = vec4(2.0 * sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
+	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgba - Factor * sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
 }

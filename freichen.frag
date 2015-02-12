@@ -6,6 +6,7 @@ in block
 } In; 
 
 uniform sampler2D Texture;
+uniform float Factor = 1.0;
 
 uniform mat3 G[9] = mat3[](
 	1.0/(2.0*sqrt(2.0)) * mat3( 1.0, sqrt(2.0), 1.0, 0.0, 0.0, 0.0, -1.0, -sqrt(2.0), -1.0 ),
@@ -43,6 +44,5 @@ void main(void)
 
     float M = (cnv[4] + cnv[5]) + (cnv[6] + cnv[7]); // Line detector
     float S = (cnv[0] + cnv[1]) + (cnv[2] + cnv[3]) + M + cnv[8]; 
-	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgb - vec3(sqrt(M/S)), 1.0);
-	//Color = vec4(vec3(sqrt(M/S)), 1.0);
+	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgb - Factor * vec3(sqrt(M/S)), 1.0);
 }

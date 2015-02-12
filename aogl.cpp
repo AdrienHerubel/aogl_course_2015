@@ -167,6 +167,7 @@ int main( int argc, char **argv )
     float spotLightCount = 0;
     float speed = 1.f;
     float gamma = 1.f;
+    float factor = 1.f;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -294,8 +295,8 @@ int main( int argc, char **argv )
     GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
 
     // Try to load and compile freichen shaders
-    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
-    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
+    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
+    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
     GLuint freichenProgramObject = glCreateProgram();
     glAttachShader(freichenProgramObject, vertBlitShaderId);
     glAttachShader(freichenProgramObject, fragfreichenlightShaderId);
@@ -304,7 +305,8 @@ int main( int argc, char **argv )
         exit(1);
     GLuint freichenTextureLocation = glGetUniformLocation(freichenProgramObject, "Texture");
     glProgramUniform1i(freichenProgramObject, freichenTextureLocation, 0);
-    GLuint freichenfreichenLocation = glGetUniformLocation(freichenProgramObject, "Gamma");
+    GLuint freichenFactorLocation = glGetUniformLocation(freichenProgramObject, "Factor");
+
 
    if (!checkError("Shaders"))
         exit(1);
@@ -720,7 +722,7 @@ int main( int argc, char **argv )
 
         // freichen
         glUseProgram(freichenProgramObject);
-        glProgramUniform1f(freichenProgramObject, freichenfreichenLocation, gamma);
+        glProgramUniform1f(freichenProgramObject, freichenFactorLocation, factor);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -781,6 +783,7 @@ int main( int argc, char **argv )
         imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
         imguiSlider("Spot Lights", &spotLightCount, 0.0, 100.0, 1);
         imguiSlider("Gamma", &gamma, 0.0, 3.0, 0.01);
+        imguiSlider("Factor", &factor, 0.0, 5.0, 0.1);
 
         imguiEndScrollArea();
         imguiEndFrame();

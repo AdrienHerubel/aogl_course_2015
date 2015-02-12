@@ -294,8 +294,8 @@ int main( int argc, char **argv )
     GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
 
     // Try to load and compile freichen shaders
-    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
-    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
+    //GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "freichen.frag");
+    GLuint fragfreichenlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
     GLuint freichenProgramObject = glCreateProgram();
     glAttachShader(freichenProgramObject, vertBlitShaderId);
     glAttachShader(freichenProgramObject, fragfreichenlightShaderId);

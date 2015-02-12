@@ -34,4 +34,5 @@ void main(void)
 	}
 
 	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgba - 2.0 * sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
+	Color = vec4(2.0 * sqrt(cnv[0]*cnv[0]+cnv[1]*cnv[1]));
 }

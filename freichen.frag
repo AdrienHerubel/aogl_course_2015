@@ -44,4 +44,5 @@ void main(void)
     float M = (cnv[4] + cnv[5]) + (cnv[6] + cnv[7]); // Line detector
     float S = (cnv[0] + cnv[1]) + (cnv[2] + cnv[3]) + M + cnv[8]; 
 	Color = vec4(texelFetch( Texture, ivec2(gl_FragCoord), 0 ).rgb - vec3(sqrt(M/S)), 1.0);
+	//Color = vec4(vec3(sqrt(M/S)), 1.0);
 }

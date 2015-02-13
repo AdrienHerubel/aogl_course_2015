@@ -169,6 +169,9 @@ int main( int argc, char **argv )
     float gamma = 1.f;
     float factor = 1.f;
     float sampleCount = 3.0;
+    float focusPlane = 5.0;
+    float nearPlane = 1.0;
+    float farPlane = 50.0;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -321,6 +324,33 @@ int main( int argc, char **argv )
     GLuint blurSampleCountLocation = glGetUniformLocation(blurProgramObject, "SampleCount");
     GLuint blurDirectionLocation = glGetUniformLocation(blurProgramObject, "Direction");
 
+    // Try to load and compile coc shaders
+    GLuint fragcoclightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "coc.frag");
+    GLuint cocProgramObject = glCreateProgram();
+    glAttachShader(cocProgramObject, vertBlitShaderId);
+    glAttachShader(cocProgramObject, fragcoclightShaderId);
+    glLinkProgram(cocProgramObject);
+    if (check_link_error(cocProgramObject) < 0)
+        exit(1);
+    GLuint cocTextureLocation = glGetUniformLocation(cocProgramObject, "Texture");
+    glProgramUniform1i(cocProgramObject, cocTextureLocation, 0);
+    GLuint cocScreenToViewCountLocation = glGetUniformLocation(cocProgramObject, "ScreenToView");
+    GLuint cocFocusnLocation = glGetUniformLocation(cocProgramObject, "Focus");
+
+    // Try to load and compile dof shaders
+    GLuint fragdoflightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "dof.frag");
+    GLuint dofProgramObject = glCreateProgram();
+    glAttachShader(dofProgramObject, vertBlitShaderId);
+    glAttachShader(dofProgramObject, fragdoflightShaderId);
+    glLinkProgram(dofProgramObject);
+    if (check_link_error(dofProgramObject) < 0)
+        exit(1);
+    GLuint dofColorLocation = glGetUniformLocation(dofProgramObject, "Color");
+    glProgramUniform1i(dofProgramObject, dofColorLocation, 0);
+    GLuint dofCoCLocation = glGetUniformLocation(dofProgramObject, "CoC");
+    glProgramUniform1i(dofProgramObject, dofCoCLocation, 1);
+    GLuint dofBlurLocation = glGetUniformLocation(dofProgramObject, "Blur");
+    glProgramUniform1i(dofProgramObject, dofBlurLocation, 2);
 
    if (!checkError("Shaders"))
         exit(1);
@@ -473,8 +503,8 @@ int main( int argc, char **argv )
     glDrawBuffers(1, fxDrawBuffers);
 
     // Create Fx textures
-    GLuint fxTextures[3];
-    glGenTextures(3, fxTextures);
+    GLuint fxTextures[4];
+    glGenTextures(4, fxTextures);
     glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -488,6 +518,12 @@ int main( int argc, char **argv )
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, fxTextures[2]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, fxTextures[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -681,7 +717,7 @@ int main( int argc, char **argv )
              DirectionalLight d = { 
                 glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
                 glm::vec3(1.0, 1.0, 1.0),
-                0.3f
+                0.8f
             };
             DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
             *directionalLightBuffer = d;
@@ -732,7 +768,7 @@ int main( int argc, char **argv )
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Attach fx texture #0 to framebuffer
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[2], 0);
         // Only the color buffer is used
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -745,14 +781,39 @@ int main( int argc, char **argv )
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Attach fx texture #1 to framebuffer
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
         // Only the color buffer is used
         glClear(GL_COLOR_BUFFER_BIT);
-
         // horizontal blur
         glProgramUniform2i(blurProgramObject, blurDirectionLocation, 1, 0);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[2]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Attach fx texture #1 to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[2], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
+        // CoC compute
+        glUseProgram(cocProgramObject);
+        glProgramUniform3f(cocProgramObject, cocFocusnLocation, focusPlane, nearPlane, farPlane);
+        glProgramUniformMatrix4fv(cocProgramObject, cocScreenToViewCountLocation, 1, 0, glm::value_ptr(inverseProjection));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Attach fx texture #1 to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[3], 0);
+        // Only the color buffer is used
+        glClear(GL_COLOR_BUFFER_BIT);
+        // dof compute
+        glUseProgram(dofProgramObject);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[1]); // Color
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[2]); // CoC
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]); // Blur
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Write to back buffer
@@ -762,7 +823,7 @@ int main( int argc, char **argv )
         glUseProgram(gammaProgramObject);
         glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[3]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Bind blit shader
@@ -823,6 +884,9 @@ int main( int argc, char **argv )
         imguiSlider("Gamma", &gamma, 0.0, 3.0, 0.01);
         imguiSlider("Factor", &factor, 0.0, 5.0, 0.1);
         imguiSlider("Blur Samples", &sampleCount, 3.0, 65.0, 2.0);
+        imguiSlider("Focus plane", &focusPlane, 1.0, 100.0, 1.0);
+        imguiSlider("Near plane", &nearPlane, 1.0, 100.0, 1.0);
+        imguiSlider("Far plane", &farPlane, 1.0, 100.0, 1.0);
 
         imguiEndScrollArea();
         imguiEndFrame();

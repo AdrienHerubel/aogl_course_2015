@@ -32,7 +32,7 @@ void main()
 	vec3 n = normalize(In.CameraSpaceNormal);
 	// gl_FrontFacing is not working on MacOSX Intel cards
 	// Try this instead :
-#if 0	
+#if 1	
 	if (dot(n, normalize(-In.CameraSpacePosition)) < 0.)
  #else
 	if (!gl_FrontFacing)

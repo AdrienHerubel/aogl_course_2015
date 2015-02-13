@@ -835,21 +835,27 @@ int main( int argc, char **argv )
         glBindVertexArray(vao[2]);
 
         // Viewport 
-        glViewport( 0, 0, width/3, height/4  );
+        glViewport( 0, 0, width/4, height/4  );
         // Bind texture
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
         // Draw quad
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         // Viewport 
-        glViewport( width/3, 0, width/3, height/4  );
+        glViewport( width/4, 0, width/4, height/4  );
         // Bind texture
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
         // Draw quad
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         // Viewport 
-        glViewport( width/3 * 2, 0, width/3, height/4  );
+        glViewport( width/4 * 2, 0, width/4, height/4  );
         // Bind texture
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( width/4 * 3, 0, width/4, height/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, fxTextures[(int)t%4]);
         // Draw quad
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 

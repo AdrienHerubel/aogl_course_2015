@@ -26,7 +26,7 @@ layout(location = TEXCOORD) in vec2 Texcoord;
 
 out block
 {
-	int InstanceId;
+	flat int InstanceId;
 	vec2 Texcoord;
 	vec3 CameraSpacePosition;
 	vec3 CameraSpaceNormal;

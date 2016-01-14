@@ -64,6 +64,7 @@ layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
 
 in block
 {
+	flat int InstanceId;
 	vec2 Texcoord;
 	vec3 CameraSpacePosition;
 	vec3 CameraSpaceNormal;
@@ -93,6 +94,9 @@ vec3 directionalLights( in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 spec
 		vec3 h = normalize(l+v);
 		float ndoth = max(dot(n, h), 0.0);
 		outColor +=  DirectionalLights.Lights[i].Color * DirectionalLights.Lights[i].Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, SpecularPower));
+		float norm = ((SpecularPower+2.) * (SpecularPower+4.)) / (8.*PI * (2.*-SpecularPower/2.+SpecularPower));
+		outColor +=  DirectionalLights.Lights[i].Color * DirectionalLights.Lights[i].Intensity * PI *
+					  (diffuseColor / PI + (specularColor * pow(ndoth, SpecularPower)) / norm) * ndotl;
 	}
 	return outColor;
 }

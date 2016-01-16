@@ -14,7 +14,7 @@
 #include "GLFW/glfw3.h"
 #include "stb/stb_image.h"
 #include "imgui/imgui.h"
-#include "imgui/imguiRenderGL3.h"
+#include "imgui/imgui_impl_glfw_gl3.h"
 
 #include "glm/glm.hpp"
 #include "glm/vec3.hpp" // glm::vec3
@@ -46,6 +46,7 @@ extern const unsigned char DroidSans_ttf[];
 extern const unsigned int DroidSans_ttf_len;    
 
 // Shader utils
+int check_link_error(GLuint program);
 int check_compile_error(GLuint shader, const char ** sourceBuffer);
 int check_link_error(GLuint program);
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
@@ -148,18 +149,14 @@ int main( int argc, char **argv )
     GLenum glerr = GL_NO_ERROR;
     glerr = glGetError();
 
-    if (!imguiRenderGLInit(DroidSans_ttf, DroidSans_ttf_len))
-    {
-        fprintf(stderr, "Could not init GUI renderer.\n");
-        exit(EXIT_FAILURE);
-    }
+    ImGui_ImplGlfwGL3_Init(window, true);
 
     // Init viewer structures
     Camera camera;
     camera_defaults(camera);
     GUIStates guiStates;
     init_gui_states(guiStates);
-    float instanceCount = 1.f;
+    int instanceCount = 1;
 
     // Load images and upload textures
     GLuint textures[2];
@@ -192,6 +189,7 @@ int main( int argc, char **argv )
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
     GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
+
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
     GLuint programObject = glCreateProgram();
     glAttachShader(programObject, vertShaderId);
@@ -288,6 +286,7 @@ int main( int argc, char **argv )
     do
     {
         t = glfwGetTime();
+        ImGui_ImplGlfwGL3_NewFrame();
 
         // Mouse states
         int leftButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT );
@@ -386,38 +385,13 @@ int main( int argc, char **argv )
         glBindVertexArray(vao[1]);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
-#if 1
-        // Draw UI
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glViewport(0, 0, width, height);
-
-        unsigned char mbut = 0;
-        int mscroll = 0;
-        double mousex; double mousey;
-        glfwGetCursorPos(window, &mousex, &mousey);
-        mousex*=DPI;
-        mousey*=DPI;
-        mousey = height - mousey;
-
-        if( leftButton == GLFW_PRESS )
-            mbut |= IMGUI_MBUT_LEFT;
-
-        imguiBeginFrame(mousex, mousey, mbut, mscroll);
-        int logScroll = 0;
-        char lineBuffer[512];
-        imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
-        sprintf(lineBuffer, "FPS %f", fps);
-        imguiLabel(lineBuffer);
-        imguiSlider("Instance count", &instanceCount, 1.0, 4096.0, 1);
-
-        imguiEndScrollArea();
-        imguiEndFrame();
-        imguiRenderGLDraw(width, height);
-
-        glDisable(GL_BLEND);
-#endif
+        ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
+        ImGui::Begin("aogl");
+        ImGui::SliderInt("Instance Count", &instanceCount, 1, 4096);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+        
+        ImGui::Render();
         // Check for errors
         checkError("End loop");
 
@@ -430,6 +404,7 @@ int main( int argc, char **argv )
     while( glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS );
 
     // Close OpenGL window and terminate GLFW
+    ImGui_ImplGlfwGL3_Shutdown();
     glfwTerminate();
 
     exit( EXIT_SUCCESS );
@@ -506,6 +481,7 @@ int check_link_error(GLuint program)
         return -1;
     return 0;
 }
+
 
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize)
 {

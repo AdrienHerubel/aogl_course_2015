@@ -88,7 +88,7 @@ solution "aogl"
       kind "StaticLib"
       language "C++"
       files {"lib/imgui/*.cpp", "lib/imgui/*.h"}
-      includedirs { "lib/" }
+      includedirs { "lib/", "lib/glfw/include" }
 
       configuration "Debug"
          defines { "DEBUG" }

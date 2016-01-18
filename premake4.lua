@@ -7,7 +7,7 @@ solution "aogl"
       language "C++"
       files { "aogl.cpp"}
       includedirs { "lib/glfw/include", "src", "common", "lib/" }
-      links {"glfw", "glew", "stb", "imgui"}
+      links {"imgui", "glfw", "glew", "stb"}
       defines { "GLEW_STATIC" }
      
       configuration { "linux" }
@@ -88,7 +88,7 @@ solution "aogl"
       kind "StaticLib"
       language "C++"
       files {"lib/imgui/*.cpp", "lib/imgui/*.h"}
-      includedirs { "lib/" }
+      includedirs { "lib/", "lib/glfw/include" }
 
       configuration "Debug"
          defines { "DEBUG" }

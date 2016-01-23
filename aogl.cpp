@@ -6,6 +6,7 @@
 #include <string.h>
 #include <string>
 #include <iostream>
+#include <stack>
 
 #include <cmath>
 
@@ -22,6 +23,11 @@
 #include "glm/mat4x4.hpp" // glm::mat4
 #include "glm/gtc/matrix_transform.hpp" // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include "glm/gtc/type_ptr.hpp" // glm::value_ptr
+
+/* assimp include files. These three are usually needed. */
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #ifndef DEBUG_PRINT
 #define DEBUG_PRINT 1
@@ -48,6 +54,7 @@ extern const unsigned int DroidSans_ttf_len;
 // Shader utils
 int check_link_error(GLuint program);
 int check_compile_error(GLuint shader, const char ** sourceBuffer);
+int check_link_error(GLuint program);
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
 GLuint compile_shader_from_file(GLenum shaderType, const char * fileName);
 
@@ -94,6 +101,11 @@ int main( int argc, char **argv )
     float widthf = (float) width, heightf = (float) height;
     double t;
     float fps = 0.f;
+    if (argc < 2) {
+        fprintf( stderr, "usage: aogl <model name>\n" );
+        exit( EXIT_FAILURE );
+    }
+
 
     // Initialise GLFW
     if( !glfwInit() )
@@ -155,8 +167,36 @@ int main( int argc, char **argv )
     camera_defaults(camera);
     GUIStates guiStates;
     init_gui_states(guiStates);
-    float dummySlider = 0.f;
-    float clearColor[4] = {0.f, 0.f, 0.f, 1.f};
+    int instanceCount = 1;
+    float scaleFactor=1.f;
+
+    // Load images and upload textures
+    GLuint textures[2];
+    glGenTextures(2, textures);
+    int x;
+    int y;
+    int comp;
+
+    unsigned char * diffuse = stbi_load("textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+
+    unsigned char * spec = stbi_load("textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
+    checkError("Texture Initialization");
 
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
@@ -168,11 +208,95 @@ int main( int argc, char **argv )
     if (check_link_error(programObject) < 0)
         exit(1);
     
+
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
-
+    GLuint mvLocation = glGetUniformLocation(programObject, "MV");
+    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
+    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
+    GLuint specLocation = glGetUniformLocation(programObject, "Specular");
+    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
+    GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
+    GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
+    glProgramUniform1i(programObject, diffuseLocation, 0);
+    glProgramUniform1i(programObject, specLocation, 1);
     if (!checkError("Uniforms"))
         exit(1);
+
+    const aiScene* scene = NULL;
+    GLuint scene_list = 0;
+    scene = aiImportFile(argv[1], aiProcessPreset_TargetRealtime_MaxQuality);
+
+    GLuint * assimp_vao = new GLuint[scene->mNumMeshes];
+    glm::mat4 * assimp_objectToWorld = new glm::mat4[scene->mNumMeshes];
+    glGenVertexArrays(scene->mNumMeshes, assimp_vao);
+    // Vertex Buffer Objects
+    GLuint * assimp_vbo = new GLuint[scene->mNumMeshes*4];
+    glGenBuffers(scene->mNumMeshes*4, assimp_vbo);
+
+    for (int i =0; i < scene->mNumMeshes; ++i)
+    {
+        const aiMesh* m = scene->mMeshes[i];
+        GLuint * faces = new GLuint[m->mNumFaces*3];
+        for (int j = 0; j < m->mNumFaces; ++j)
+        {
+            const aiFace& f = m->mFaces[j];
+            faces[j*3] = f.mIndices[0];
+            faces[j*3+1] = f.mIndices[1];
+            faces[j*3+2] = f.mIndices[2];
+        }
+      
+        glBindVertexArray(assimp_vao[i]);
+        // Bind indices and upload data
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, assimp_vbo[i*4]);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->mNumFaces*3 *sizeof(GLuint), faces, GL_STATIC_DRAW);
+
+        // Bind vertices and upload data
+        glBindBuffer(GL_ARRAY_BUFFER, assimp_vbo[i*4+1]);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+        glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mVertices, GL_STATIC_DRAW);
+        
+        // Bind normals and upload data
+        glBindBuffer(GL_ARRAY_BUFFER, assimp_vbo[i*4+2]);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+        glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mNormals, GL_STATIC_DRAW);
+        
+        std::cout << "MESH " << i << " numFaces " << m->mNumFaces << " Tex Coords "<< m->HasTextureCoords(0) << std::endl;
+        // Bind uv coords and upload data
+        glBindBuffer(GL_ARRAY_BUFFER, assimp_vbo[i*4+3]);
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+        if (m->HasTextureCoords(0))
+            glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mTextureCoords[0], GL_STATIC_DRAW);
+        else
+            glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mVertices, GL_STATIC_DRAW);
+        delete[] faces;
+    }
+
+    std::stack<aiNode*> stack;
+    stack.push(scene->mRootNode);
+    while(stack.size()>0)
+    {
+        aiNode * node = stack.top();
+        for (int i =0; i < node->mNumMeshes; ++i)
+        {
+            unsigned int mId = node->mMeshes[i];
+            aiMatrix4x4 t = node->mTransformation;
+            assimp_objectToWorld[i] = glm::mat4(t.a1, t.a2, t.a3, t.a4,
+                                                t.b1, t.b2, t.b3, t.b4,
+                                                t.c1, t.c2, t.c3, t.c4,
+                                                t.d1, t.d2, t.d3, t.d4);
+        }
+        stack.pop();
+    }
+
+
+    // Unbind everything. Potentially illegal on some implementations
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -245,30 +369,52 @@ int main( int argc, char **argv )
         glEnable(GL_DEPTH_TEST);
 
         // Clear the front buffer
-        glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Get camera matrices
         glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
-        glm::mat4 mvp = projection * worldToView * objectToWorld;
+        glm::mat4 mv = worldToView * objectToWorld;
+        glm::mat4 mvp = projection * mv;
+        glm::vec4 light = worldToView * glm::vec4(10.0, 10.0, 0.0, 1.0);
+
+        // Select textures
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         // Select shader
         glUseProgram(programObject);
 
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+        glProgramUniform3fv(programObject, lightLocation, 1, glm::value_ptr(glm::vec3(light) / light.w));
+        glProgramUniform1i(programObject, instanceCountLocation, (int) instanceCount);
+        glProgramUniform1f(programObject, specularPowerLocation, 30.f);
+        glProgramUniform1f(programObject, timeLocation, t);
 
-#if 1
+        // Render vaos
+        glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
+        for (int i =0; i < scene->mNumMeshes; ++i)
+        {
+            mv = worldToView * scale * assimp_objectToWorld[i];
+            mvp = projection * mv;
+            glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+            glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+            const aiMesh* m = scene->mMeshes[i];
+            glBindVertexArray(assimp_vao[i]);
+            glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
-        ImGui::SliderFloat("dummy", &dummySlider, 0.0f, 1.0f);
-        ImGui::ColorEdit3("clear color", clearColor);
+        ImGui::DragFloat("Scale", &scaleFactor, 0.01f, 100.f);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
         
-#endif
         ImGui::Render();
         // Check for errors
         checkError("End loop");

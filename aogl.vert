@@ -21,11 +21,13 @@ out gl_PerVertex
 
 out block
 {
-	vec2 TexCoord; 
+	vec2 TexCoord;
+	vec3 Normal;
 } Out;
 
 void main()
 {	
 	gl_Position = MVP * vec4(Position, 1.0);
 	Out.TexCoord = TexCoord;
+	Out.Normal = Normal;
 }

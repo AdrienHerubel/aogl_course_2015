@@ -14,7 +14,7 @@
 #include "GLFW/glfw3.h"
 #include "stb/stb_image.h"
 #include "imgui/imgui.h"
-#include "imgui/imguiRenderGL3.h"
+#include "imgui/imgui_impl_glfw_gl3.h"
 
 #include "glm/glm.hpp"
 #include "glm/vec3.hpp" // glm::vec3
@@ -47,6 +47,7 @@ extern const unsigned char DroidSans_ttf[];
 extern const unsigned int DroidSans_ttf_len;    
 
 // Shader utils
+int check_link_error(GLuint program);
 int check_compile_error(GLuint shader, const char ** sourceBuffer);
 int check_link_error(GLuint program);
 GLuint compile_shader(GLenum shaderType, const char * sourceBuffer, int bufferSize);
@@ -163,11 +164,7 @@ int main( int argc, char **argv )
     GLenum glerr = GL_NO_ERROR;
     glerr = glGetError();
 
-    if (!imguiRenderGLInit(DroidSans_ttf, DroidSans_ttf_len))
-    {
-        fprintf(stderr, "Could not init GUI renderer.\n");
-        exit(EXIT_FAILURE);
-    }
+    ImGui_ImplGlfwGL3_Init(window, true);
 
     // Init viewer structures
     Camera camera;
@@ -177,7 +174,7 @@ int main( int argc, char **argv )
     float instanceCount = 2500;
     float pointLightCount = 10;
     float directionalLightCount = 1;
-    float spotLightCount = 1;
+    int spotLightCount = 1;
     float speed = 1.0;
 
     // Load images and upload textures
@@ -507,6 +504,7 @@ int main( int argc, char **argv )
     do
     {
         t = glfwGetTime() * speed;
+        ImGui_ImplGlfwGL3_NewFrame();
 
         // Mouse states
         int leftButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT );
@@ -571,14 +569,6 @@ int main( int argc, char **argv )
         if (glfwGetKey(window, GLFW_KEY_B))
             guiStates.blit = ! guiStates.blit;
 
-// static void handleKey(GLFWwindow* window, int key, int scancode, int action, int mods)
-// {
-//     if (key == GLFW_KEY_G && action == GLFW_PRESS)
-//         g_guiStates->display = ! g_guiStates->display;
-//     if (key == GLFW_KEY_B && action == GLFW_PRESS)
-//         g_guiStates->blit = ! g_guiStates->blit;
-// }
-
         // Default states
         glEnable(GL_DEPTH_TEST);
 
@@ -608,6 +598,7 @@ int main( int argc, char **argv )
         glBindTexture(GL_TEXTURE_2D, textures[0]);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, textures[1]);
+
 
         // Select shader
         glUseProgram(gbufferProgramObject);
@@ -645,7 +636,7 @@ int main( int argc, char **argv )
         for (int i = 0; i < spotLightCount; ++i)
         {
             // Setup light data
-#if 1                
+#if 0                
             glm::vec3 lp(i*2, 5.f, i*2);
             glm::vec3 ld(-1.f, -1.f, 0.f);
             float angle = 45.f;
@@ -760,39 +751,50 @@ int main( int argc, char **argv )
 
         if (guiStates.display)
         {
-            // Draw UI
-            glDisable(GL_DEPTH_TEST);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glViewport(0, 0, width, height);
+            // // Draw UI
+            // glDisable(GL_DEPTH_TEST);
+            // glEnable(GL_BLEND);
+            // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            // glViewport(0, 0, width, height);
 
-            unsigned char mbut = 0;
-            int mscroll = 0;
-            double mousex; double mousey;
-            glfwGetCursorPos(window, &mousex, &mousey);
-            mousex*=DPI;
-            mousey*=DPI;
-            mousey = height - mousey;
+            // unsigned char mbut = 0;
+            // int mscroll = 0;
+            // double mousex; double mousey;
+            // glfwGetCursorPos(window, &mousex, &mousey);
+            // mousex*=DPI;
+            // mousey*=DPI;
+            // mousey = height - mousey;
 
-            if( leftButton == GLFW_PRESS )
-                mbut |= IMGUI_MBUT_LEFT;
+            // if( leftButton == GLFW_PRESS )
+            //     mbut |= IMGUI_MBUT_LEFT;
 
-            imguiBeginFrame(mousex, mousey, mbut, mscroll);
-            char lineBuffer[512];
-            imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &guiStates.scroll);
-            sprintf(lineBuffer, "FPS %f", fps);
-            imguiLabel(lineBuffer);
-            imguiSlider("Speed", &speed, 0.0, 1.0, 0.01);
-            imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
-            imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
-            imguiSlider("Spot Lights", &spotLightCount, 1.0, 16.0, 1);
+            // imguiBeginFrame(mousex, mousey, mbut, mscroll);
+            // char lineBuffer[512];
+            // imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &guiStates.scroll);
+            // sprintf(lineBuffer, "FPS %f", fps);
+            // imguiLabel(lineBuffer);
+            // imguiSlider("Speed", &speed, 0.0, 1.0, 0.01);
+            // imguiSlider("Point Lights", &pointLightCount, 0.0, 100.0, 1);
+            // imguiSlider("Directional Lights", &directionalLightCount, 0.0, 100.0, 1);
+            // imguiSlider("Spot Lights", &spotLightCount, 1.0, 16.0, 1);
 
-            imguiEndScrollArea();
-            imguiEndFrame();
-            imguiRenderGLDraw(width, height);
+            // imguiEndScrollArea();
+            // imguiEndFrame();
+            // imguiRenderGLDraw(width, height);
 
-            glDisable(GL_BLEND);
+            // glDisable(GL_BLEND);
+
+            ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
+            ImGui::Begin("aogl");
+            //ImGui::SliderFloat("dummy", &dummySlider, 0.0f, 1.0f);
+            //ImGui::ColorEdit3("clear color", clearColor);
+            ImGui::DragInt("Spotlights", &spotLightCount, 0.1, 1, 16);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+            ImGui::End();
+            ImGui::Render();
         }
+
         // Check for errors
         checkError("End loop");
 
@@ -805,6 +807,7 @@ int main( int argc, char **argv )
     while( glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS );
 
     // Close OpenGL window and terminate GLFW
+    ImGui_ImplGlfwGL3_Shutdown();
     glfwTerminate();
 
     exit( EXIT_SUCCESS );

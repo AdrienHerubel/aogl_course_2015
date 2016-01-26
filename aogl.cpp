@@ -169,34 +169,6 @@ int main( int argc, char **argv )
     int instanceCount = 1;
     float scaleFactor=1.f;
 
-    // Load images and upload textures
-    GLuint textures[2];
-    glGenTextures(2, textures);
-    int x;
-    int y;
-    int comp;
-
-    unsigned char * diffuse = stbi_load("textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
-
-    unsigned char * spec = stbi_load("textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
-    checkError("Texture Initialization");
-
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
@@ -206,7 +178,6 @@ int main( int argc, char **argv )
     glLinkProgram(programObject);
     if (check_link_error(programObject) < 0)
         exit(1);
-    
 
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
@@ -218,7 +189,7 @@ int main( int argc, char **argv )
     GLuint lightLocation = glGetUniformLocation(programObject, "Light");
     GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
     GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
-    GLuint diffuseColorSubLocation = glGetSubroutineUniformLocation(programObject, "DiffuseColorSub");
+    GLuint diffuseColorSubLocation = glGetSubroutineUniformLocation(programObject, GL_FRAGMENT_SHADER, "DiffuseColorSub");
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, specLocation, 1);
     if (!checkError("Uniforms"))
@@ -228,10 +199,14 @@ int main( int argc, char **argv )
     GLuint scene_list = 0;
     scene = aiImportFile(argv[1], aiProcessPreset_TargetRealtime_MaxQuality);
 
+    if (!scene) {
+          fprintf(stderr, "Error: impossible to open %s\n", argv[1]);
+          exit( EXIT_FAILURE );
+    }
+
     GLuint * assimp_vao = new GLuint[scene->mNumMeshes];
     glm::mat4 * assimp_objectToWorld = new glm::mat4[scene->mNumMeshes];
     glGenVertexArrays(scene->mNumMeshes, assimp_vao);
-    // Vertex Buffer Objects
     GLuint * assimp_vbo = new GLuint[scene->mNumMeshes*4];
     glGenBuffers(scene->mNumMeshes*4, assimp_vbo);
 
@@ -267,7 +242,6 @@ int main( int argc, char **argv )
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
         glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mNormals, GL_STATIC_DRAW);
         
-        std::cout << "MESH " << i << " numFaces " << m->mNumFaces << " Tex Coords "<< m->HasTextureCoords(0) << std::endl;
         // Bind uv coords and upload data
         glBindBuffer(GL_ARRAY_BUFFER, assimp_vbo[i*4+3]);
         glEnableVertexAttribArray(2);
@@ -278,11 +252,9 @@ int main( int argc, char **argv )
             glBufferData(GL_ARRAY_BUFFER, m->mNumVertices*3*sizeof(float), m->mVertices, GL_STATIC_DRAW);
         delete[] faces;
 
-        std::cout << "MATERIAL " << m->mMaterialIndex << std::endl;
         const aiMaterial * mat = scene->mMaterials[m->mMaterialIndex];
-
         int texIndex = 0;
-        aiString texPath;   //contains filename of texture
+        aiString texPath;
         if(AI_SUCCESS == mat->GetTexture(aiTextureType_DIFFUSE, texIndex, &texPath))
         {
             std::string path = argv[1];
@@ -291,8 +263,6 @@ int main( int argc, char **argv )
             std::string fileloc = basePath + texPath.data;
             pos = fileloc.find_last_of("\\");
             fileloc = (std::string::npos == pos) ? fileloc : fileloc.replace(pos, 1, "/");
-
-            std::cout << "HAS TEXTURE " << fileloc<< std::endl;
             int x;
             int y;
             int comp;
@@ -305,11 +275,10 @@ int main( int argc, char **argv )
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
         }
         else
         {
-            assimp_diffuse_texture_ids = 0;
+            assimp_diffuse_texture_ids[i] = 0;
         }
 
         aiColor4D diffuse;
@@ -343,7 +312,6 @@ int main( int argc, char **argv )
         }
         stack.pop();
     }
-
 
     // Unbind everything. Potentially illegal on some implementations
     glBindVertexArray(0);
@@ -431,12 +399,6 @@ int main( int argc, char **argv )
         glm::mat4 mvp = projection * mv;
         glm::vec4 light = worldToView * glm::vec4(10.0, 10.0, 0.0, 1.0);
 
-        // Select textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[0]);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[1]);
-
         // Select shader
         glUseProgram(programObject);
 
@@ -449,13 +411,16 @@ int main( int argc, char **argv )
         glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
+        glActiveTexture(GL_TEXTURE0);
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
         for (int i =0; i < scene->mNumMeshes; ++i)
         {
-            glActiveTexture(GL_TEXTURE0);
-            if (assimp_diffuse_texture_ids[i] > 0)
-            glBindTexture(GL_TEXTURE_2D, assimp_diffuse_texture_ids[i]);
-        diffuseColorSubLocation
+            GLuint subIndex = 1;
+            if (assimp_diffuse_texture_ids[i] > 0) {
+                glBindTexture(GL_TEXTURE_2D, assimp_diffuse_texture_ids[i]);
+                subIndex = 0;
+            }
+            glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &subIndex);
             mv = worldToView * scale * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
@@ -478,9 +443,6 @@ int main( int argc, char **argv )
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        double newTime = glfwGetTime();
-        fps = 1.f/ (newTime - t);
     } // Check if the ESC key was pressed
     while( glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS );
 

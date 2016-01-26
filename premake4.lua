@@ -8,7 +8,7 @@ solution "aogl"
       files { "aogl.cpp"}
       includedirs { "lib/glfw/include", "src", "common", "lib/", "lib/include", "/usr/local/include" }
       libdirs { "/usr/local/lib" }
-      links {"glfw", "glew", "stb", "imgui", "assimp"}
+      links {"imgui", "glfw", "glew", "stb",  "assimp"}
       defines { "GLEW_STATIC" }
      
       configuration { "linux" }

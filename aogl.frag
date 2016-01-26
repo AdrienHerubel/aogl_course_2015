@@ -20,15 +20,17 @@ layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
 
 subroutine vec3 diffuseColor();
 
-subroutine (diffuseColor) vec3 diffuseTexture()
-{
-	return texture(Diffuse, vec2(In.TexCoord.x, 1. - In.TexCoord.y) ).rgb;
-}
 
 subroutine (diffuseColor) vec3 diffuseUniform()
 {
 	return DiffuseColor;
 }
+
+subroutine (diffuseColor) vec3 diffuseTexture()
+{
+	return texture(Diffuse, vec2(In.TexCoord.x, 1. - In.TexCoord.y) ).rgb;
+}
+
 
 subroutine uniform diffuseColor DiffuseColorSub;
 
